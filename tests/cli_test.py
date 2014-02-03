@@ -13,7 +13,7 @@ from mgmt_engine.mgmt_db import MgmtDatabaseManager
 from mgmt_engine.management_engine_api import ManagementEngineAPI
 from mgmt_engine.exceptions import *
 from mgmt_engine.constants import *
-from mgmt_engine.key_storage import InvalidPassword
+from mgmt_engine.key_storage import KeyStorage, InvalidPassword
 from mgmt_cli.base_cli import BaseMgmtCLIHandler
 
 from pymongo import MongoClient
@@ -87,10 +87,8 @@ class TestMgmtCLI(unittest.TestCase):
         MgmtDatabaseManager.MGMT_DB_NAME = 'test_fabnet_mgmt_db'
 
         dbm = MgmtDatabaseManager('localhost')
-        mgmt_api = ManagementEngineAPI(dbm)
-
-        is_init = mgmt_api.is_initialized()
-        self.assertEqual(is_init, True)
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'git@test.com', '')
+        mgmt_api = ManagementEngineAPI(dbm, ks=KeyStorage(KS_PATH, KS_PASSWD))
 
         BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
         TestMgmtCLI.thread = CLIThread(8022)

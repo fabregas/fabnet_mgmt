@@ -5,12 +5,12 @@ from mgmt_engine.exceptions import *
 ###import paramiko
 
 @mgmt_api_method(ROLE_RO)
-def get_cluster_config(self, session_id):
-    return self._db_mgr.get_cluster_config()
+def get_cluster_config(engine, session_id):
+    return engine._db_mgr.get_cluster_config()
 
 @mgmt_api_method(ROLE_CF)
-def configure_cluster(self, session_id, config):
-    self._db_mgr.set_cluster_config(config)
+def configure_cluster(engine, session_id, config):
+    engine._db_mgr.set_cluster_config(config)
 
 @mgmt_api_method(ROLE_NM)
 def install_new_node(self, session_id, ssh_address, ssh_user, ssh_pwd, node_name, \

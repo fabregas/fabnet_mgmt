@@ -11,6 +11,7 @@ Copyright (C) 2013 Konstantin Andrusenko
 This module contains the implementation of ManagementEngineAPI class
 """
 import os
+import re
 import hashlib
 import tempfile
 import uuid
@@ -24,42 +25,133 @@ from mgmt_engine.decorators import *
 from mgmt_engine.users_mgmt import *
 from mgmt_engine.nodes_mgmt import *
 
+import paramiko
+
+class MockFileObj:
+    def __init__(self, data):
+        self.__data = data
+
+    def read(self, l=None):
+        ret = self.__data[:l]
+        self.__data = self.__data[len(ret):]
+        return ret
+
+    def readlines(self):
+        return self.read().split('\n')
+
+    def close(self):
+        pass
+
+class SSHClient:
+    def __init__(self, pri=None, timeout=10):
+        self.__timeout = timeout
+
+        if pri:
+            self.__pri = pri
+        else:
+            home = os.environ.get('HOME', '/root')
+            path = os.path.join(home, '.ssh/id_rsa')
+            if os.path.exists(path):
+                self.__pri = paramiko.RSAKey.from_private_key_file(filename=path)
+            else:
+                self.__pri = None
+
+    def get_pubkey(self):
+        return self.__pri.get_base64()
+
+    def connect(self, hostname, port=22, username=None, password=None, pkey=None):
+        cli = paramiko.SSHClient()
+        #cli.get_host_keys().add(hostname, 'ssh-rsa', self.__pri)
+        cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        if pkey:
+            pkey = paramiko.RSAKey.from_private_key(file_obj=MockFileObj(pkey))
+        if not pkey:
+            pkey = self.__pri
+        cli.connect(hostname, port, username, password, pkey, timeout=self.__timeout)
+        return cli
+
 
 class ManagementEngineAPI(object):
-    def __init__(self, db_mgr):
+    @classmethod
+    def initial_configuration(cls, db_mgr, cluster_name, is_secured_inst, node_git_repo, ca_addr):
+        config = db_mgr.get_cluster_config()
+        if config.has_key(DBK_CONFIG_CLNAME):
+            raise MEAlreadyExistsException('Management engine is already configured!') 
+
+        if not re.match('\w\w\w+$', cluster_name):
+            raise MEInvalidConfigException('Cluster name is invalid!')
+
+        cfg = {DBK_CONFIG_CLNAME: cluster_name,
+                DBK_CONFIG_SECURED_INST: '1' if is_secured_inst else '0',
+                DBK_CONFIG_NODE_GIT_REPO: node_git_repo,
+                DBK_CONFIG_CA_ADDR: ca_addr}
+
+        db_mgr.set_cluster_config(cfg)
+
+    def __init__(self, db_mgr, ks=None):
         mgmt_api_method.mgmt_engine_api = self
 
         self._db_mgr = db_mgr
-        self._admin_ks = None
-        self.__admin_ks_path = self.__get_admin_ks_path()
+        self._admin_ks = ks
+        self.__check_configuration()
+
+        key = self.__init_ssh()
+        self.__ssh_client = SSHClient(key)
 
     def __del__(self):
-        if self.__admin_ks_path:
-            os.remove(self.__admin_ks_path)
         if self._db_mgr:
             self._db_mgr.close()
 
-    def is_initialized(self):
-        if not self.__admin_ks_path:
-            return True
-        return self._admin_ks is not None
+    def __check_configuration(self):
+        cluster_name = self.get_config_var(DBK_CONFIG_CLNAME)
+        if not cluster_name:
+            raise MENotConfiguredException('cluster name does not specified!')
 
-    def initialize(self, ks_pwd):
-        if not self.__admin_ks_path:
-            return
-        self._admin_ks = KeyStorage(self.__admin_ks_path, ks_pwd)
+        cluster_name = self.get_config_var(DBK_CONFIG_SECURED_INST)
+        if cluster_name is None:
+            raise MENotConfiguredException('installation type does not specified!')
 
-    def __get_admin_ks_path(self):
+        if self.is_secured_installation() and not self._admin_ks:
+            raise MEInvalidArgException('Key storage should be specified for secured installation!')
+
+    def get_ssh_client(self):
+        return self.__ssh_client
+
+    def get_config_var(self, var, default=None):
         config = self._db_mgr.get_cluster_config()
-        ks_content = config.get(DBK_CONFIG_KS, None)
-        if not ks_content:
+        return config.get(var, default)
+
+    def update_config(self, new_config):
+        self._db_mgr.set_cluster_config(new_config)
+
+    def is_secured_installation(self):
+        sec = self.get_config_var(DBK_CONFIG_SECURED_INST)
+        if sec:
+            sec = int(sec)
+        return bool(sec)
+
+    def __init_ssh(self):
+        if not self._admin_ks:
             return None
 
-        f_hdl, f_path = tempfile.mkstemp('-admin-ks') 
-        ks_content = base64.b64decode(ks_content)
-        os.write(f_hdl, ks_content)
-        os.close(f_hdl)
-        return f_path
+        if not self.is_secured_installation():
+            return None
+
+        pwd = self._admin_ks.hexdigest()
+        ssh_key = self.get_config_var(DBK_CONFIG_SSH_KEY)
+        if not ssh_key:
+            key = paramiko.RSAKey.generate(1024)
+            f_hdl, f_path = tempfile.mkstemp()
+            try:
+                key.write_private_key_file(f_path, password=pwd)
+                ssh_key = open(f_path).read()
+                self.update_config({DBK_CONFIG_SSH_KEY: ssh_key})
+            finally:
+                os.close(f_hdl)
+                os.remove(f_path)
+ 
+        pkey = paramiko.RSAKey.from_private_key(file_obj=MockFileObj(ssh_key), password=pwd)
+        return pkey
 
     def check_roles(self, session_id, need_roles):
         user = self._db_mgr.get_user_by_session(session_id)

@@ -11,7 +11,7 @@ from mgmt_engine.mgmt_db import MgmtDatabaseManager
 from mgmt_engine.management_engine_api import ManagementEngineAPI
 from mgmt_engine.exceptions import *
 from mgmt_engine.constants import *
-from mgmt_engine.key_storage import InvalidPassword
+from mgmt_engine.key_storage import KeyStorage, InvalidPassword
 
 from pymongo import MongoClient
 
@@ -19,6 +19,7 @@ KS_PATH = './tests/ks/test.p12'
 KS_PASSWD = 'node'
 
 class TestManagementEngineAPI(unittest.TestCase):
+    key = None
     def test00_init(self):
         with self.assertRaises(MEDatabaseException):
             dbm = MgmtDatabaseManager('some-host-name')
@@ -28,14 +29,29 @@ class TestManagementEngineAPI(unittest.TestCase):
         MgmtDatabaseManager.MGMT_DB_NAME = 'test_fabnet_mgmt_db'
 
         dbm = MgmtDatabaseManager('localhost')
+        with self.assertRaises(MENotConfiguredException):
+            mgmt_api = ManagementEngineAPI(dbm)
+
+        with self.assertRaises(MEInvalidConfigException):
+            ManagementEngineAPI.initial_configuration(dbm, '', True, 'git@test.com', '')
+        with self.assertRaises(MEInvalidConfigException):
+            ManagementEngineAPI.initial_configuration(dbm, 'test-cluster', True, 'git@test.com', '')
+        with self.assertRaises(MEInvalidConfigException):
+            ManagementEngineAPI.initial_configuration(dbm, 'sh', True, 'git@test.com', '')
+
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'git@test.com', '')
+        with self.assertRaises(MEInvalidArgException):
+            mgmt_api = ManagementEngineAPI(dbm)
+
+        with self.assertRaises(MEAlreadyExistsException):
+            ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', False, 'git@test.com', '')
+
+        dbm.set_cluster_config({DBK_CONFIG_SECURED_INST: '0'})
         mgmt_api = ManagementEngineAPI(dbm)
 
         with self.assertRaises(MEAuthException):
             mgmt_api.get_cluster_config(None)
 
-        is_init = mgmt_api.is_initialized()
-        self.assertEqual(is_init, True)
-        
         with self.assertRaises(MEAuthException):
             mgmt_api.authenticate('test', 'test')
         with self.assertRaises(MEAuthException):
@@ -102,31 +118,37 @@ class TestManagementEngineAPI(unittest.TestCase):
         mgmt_api.logout(session_id)
 
         config = mgmt_api.get_cluster_config(ma_session_id)
-        self.assertEqual(config, {})
-        config = {DBK_CONFIG_CLNAME: 'testcluster',
-                  DBK_CONFIG_KS: base64.b64encode(open(KS_PATH, 'rb').read())}
+        self.assertNotEqual(config, {})
+        config = {DBK_CONFIG_CLNAME: 'testcluster'}
         mgmt_api.configure_cluster(ma_session_id, config)
         c_config = mgmt_api.get_cluster_config(ma_session_id)
         self.assertTrue(c_config.has_key(DBK_CONFIG_CLNAME))
-        self.assertTrue(c_config.has_key(DBK_CONFIG_KS))
         self.assertEqual(c_config[DBK_CONFIG_CLNAME], 'testcluster')
-        self.assertEqual(c_config[DBK_CONFIG_KS], base64.b64encode(open(KS_PATH, 'rb').read()))
+
+        key = mgmt_api.get_ssh_client().get_pubkey()
+        TestManagementEngineAPI.key = key
+        self.assertTrue(len(key)>0)
 
         mgmt_api.logout(ma_session_id)
 
     def test01_operations(self):
         dbm = MgmtDatabaseManager('localhost')
-        mgmt_api = ManagementEngineAPI(dbm)
+        mgmt_api = ManagementEngineAPI(dbm, ks=KeyStorage(KS_PATH, KS_PASSWD))
+        key = mgmt_api.get_ssh_client().get_pubkey()
+        self.assertTrue(len(key)>0)
+        self.assertEqual(key, TestManagementEngineAPI.key)
+        self.assertTrue(not mgmt_api.is_secured_installation())
 
-        is_init = mgmt_api.is_initialized()
-        self.assertEqual(is_init, False)
-
-        with self.assertRaises(InvalidPassword):
-            mgmt_api.initialize('some invalid password')
-        mgmt_api.initialize(KS_PASSWD)
+        config = {DBK_CONFIG_SECURED_INST: '1'}
+        mgmt_api.update_config(config)
         
-        is_init = mgmt_api.is_initialized()
-        self.assertEqual(is_init, True)
+        mgmt_api = ManagementEngineAPI(dbm, ks=KeyStorage(KS_PATH, KS_PASSWD))
+        key = mgmt_api.get_ssh_client().get_pubkey()
+        self.assertTrue(mgmt_api.is_secured_installation())
+        self.assertTrue(len(key)>0)
+        self.assertNotEqual(key, TestManagementEngineAPI.key)
+
+
 
 if __name__ == '__main__':
     unittest.main()

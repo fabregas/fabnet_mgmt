@@ -19,6 +19,8 @@ class MEBaseException(Exception):
     ERR_NFND = 50
     ERR_ALEX = 55
     ERR_INAR = 60
+    ERR_INCF = 70
+    ERR_NTCF = 80
 
     def __init__(self, ret_code, msg):
         self.ret_code = ret_code
@@ -36,6 +38,10 @@ class MEBaseException(Exception):
 class MEAuthException(MEBaseException):
     def __init__(self, msg):
         MEBaseException.__init__(self, self.ERR_AUTH, msg)
+        
+class MEInvalidConfigException(MEBaseException):
+    def __init__(self, msg):
+        MEBaseException.__init__(self, self.ERR_INCF, msg)
 
 class MEPermException(MEBaseException):
     def __init__(self, msg):
@@ -64,3 +70,8 @@ class MEAlreadyExistsException(MEBaseException):
 class MEInvalidArgException(MEBaseException):
     def __init__(self, msg):
         MEBaseException.__init__(self, self.ERR_INAR, msg)
+
+class MENotConfiguredException(MEBaseException):
+    def __init__(self, msg):
+        MEBaseException.__init__(self, self.ERR_NTCF, ': '.join(('Management engine does not configured', msg)))
+

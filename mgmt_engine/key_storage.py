@@ -2,6 +2,7 @@
 import os
 import re
 import subprocess
+import hashlib
 import tempfile
 
 from M2Crypto import RSA, X509
@@ -99,11 +100,29 @@ class KeyStorage:
     def cert(self):
         return self.__cert
 
+    def hexdigest(self):
+        return hashlib.sha1(self.__private).hexdigest()
+
     def private(self):
         return self.__private
 
+    def private_obj(self):
+        return RSA.load_key_string(self.__private)
+
+    def encrypt(self, data):
+        key = self.private_obj()
+        return key.public_encrypt(data, RSA.pkcs1_oaep_padding)
+
+    def decrypt(self, data):
+        key = self.private_obj()
+        return key.private_decrypt(data, RSA.pkcs1_oaep_padding)
+
     def cert_obj(self):
         return X509.load_cert_string(self.__cert)
+
+    def pubkey(self):
+        pkey = self.cert_obj().get_pubkey()
+        return pkey.get_rsa().as_pem()
 
     def append_cert(self, cert):
         if not self.__private:

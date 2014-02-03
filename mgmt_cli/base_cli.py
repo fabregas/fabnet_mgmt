@@ -36,11 +36,6 @@ class BaseMgmtCLIHandler(TelnetHandler):
             raise err
 
     def session_start(self):
-        if not self.mgmtManagementAPI.is_initialized():
-            self.writeline('!!!Management engine does not initialized!!!')
-            pwd = self.readline(prompt='Key storage password: ', echo=False)
-            self.mgmtManagementAPI.initialize(pwd)
-
         self.COMMANDS = {}
         self.ordered_commands = []
         allowed_methods = self.mgmtManagementAPI.get_allowed_methods(self.session_id)

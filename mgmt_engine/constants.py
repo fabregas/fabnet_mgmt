@@ -15,8 +15,12 @@ DBK_USERS = 'users'
 DBK_SESSIONS = 'sessions'
 
 DBK_ID = '_id'
-DBK_CONFIG_KS = 'key_storage' 
 DBK_CONFIG_CLNAME = 'cluster_name'
+DBK_CONFIG_SECURED_INST = '__is_secured_installation' 
+DBK_CONFIG_SSH_KEY = '__ssh_key'
+DBK_CONFIG_NODE_GIT_REPO = '__git_repo_url'
+DBK_CONFIG_CA_ADDR = '__ca_addr'
+
 DBK_USERNAME = 'username'
 DBK_START_DT = 'start_dt'
 DBK_ROLES = 'roles'
