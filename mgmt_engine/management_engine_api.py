@@ -59,6 +59,33 @@ class SSHClient:
     def get_pubkey(self):
         return self.__pri.get_base64()
 
+    def __make_executor(self, cli):
+        def executor(command, timeout=None):
+            cli.log += '\n# %s\n'%command
+            command += ' ;echo $? 1>&2'
+            stdin, stdout, stderr = cli.exec_command(command, timeout=timeout, get_pty=True)
+            out = stdout.read()
+            try:
+                ret_code = out.splitlines()[-1]
+                out = out[:-len(ret_code)]
+                ret_code = int(ret_code)
+            except ValueError:
+                raise Exception('Invalid return code. STDERR: %s'%out)
+
+            cli.log += out
+            if ret_code:
+                cli.log += stderr.read()
+            return ret_code
+        return executor
+
+    def __make_safe_exec(self, cli):
+        def safe_exec(cmd):
+            rcode = cli.execute(cmd)
+            if rcode:
+                raise MEOperException(cli.log+'\nERROR! Configuration failed!')
+            return rcode
+        return safe_exec
+
     def connect(self, hostname, port=22, username=None, password=None, pkey=None):
         cli = paramiko.SSHClient()
         #cli.get_host_keys().add(hostname, 'ssh-rsa', self.__pri)
@@ -68,6 +95,9 @@ class SSHClient:
         if not pkey:
             pkey = self.__pri
         cli.connect(hostname, port, username, password, pkey, timeout=self.__timeout)
+        cli.log = ''
+        cli.execute = self.__make_executor(cli)
+        cli.safe_exec = self.__make_safe_exec(cli)
         return cli
 
 

@@ -27,6 +27,10 @@ DBK_ROLES = 'roles'
 DBK_USER_PWD_HASH = 'password_hash'
 DBK_LAST_SESSION = 'last_session'
 
+DBK_SSHPORT = 'ssh_port'
+DBK_USERNAME = 'user_name'
+
+DBK_PHY_NODES ='physical_nodes'
 DBK_NODES = 'installed_nodes'
 DBK_NODETYPE = 'node_type'
 DBK_NODEADDR = 'node_addr'
@@ -39,6 +43,9 @@ ROLE_NM = 'nodesmanage'
 ROLE_CF = 'configure'
 ROLE_SS = 'startstop'
 ROLE_UPGR = 'upgrade'
+
+#user name for nodes
+USER_NAME = 'fabnet'
 
 ROLES_DESC = {ROLE_RO: 'Read only access',
             ROLE_UM: 'Manage users accounts access',

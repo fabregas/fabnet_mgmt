@@ -40,6 +40,8 @@ class cli_command:
             except exceptions.MEBaseException, err:
                 self_m.writeresponse('Error! %s\n'%err)
             except Exception, err:
+                #import traceback
+                #traceback.print_exc(file=self_m)
                 self_m.writeresponse('Unexpected error: %s\n'%err)
 
 

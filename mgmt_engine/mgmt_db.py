@@ -134,6 +134,15 @@ class MgmtDatabaseManager:
             return session
         return None
 
+    def append_physical_node(self, ssh_hostname, ssh_port, user_name):
+        self.__mgmt_db[DBK_PHY_NODES].insert({DBK_ID: ssh_hostname, \
+                                        DBK_SSHPORT: ssh_port, \
+                                        DBK_USERNAME: user_name, \
+                                        DBK_INSTALLDATE: datetime.now()})
+
+    def get_physical_node(self, ssh_hostname):
+        return self.__mgmt_db[DBK_PHY_NODES].find_one({DBK_ID: ssh_hostname})
+
     def append_node(self, node_name, node_type, node_address):
         self.__mgmt_db[DBK_NODES].insert({DBK_ID: node_name, \
                                         DBK_NODETYPE: node_type, \

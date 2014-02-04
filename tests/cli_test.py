@@ -10,7 +10,7 @@ import socket
 import sys
 
 from mgmt_engine.mgmt_db import MgmtDatabaseManager
-from mgmt_engine.management_engine_api import ManagementEngineAPI
+from mgmt_engine.management_engine_api import ManagementEngineAPI, MockFileObj
 from mgmt_engine.exceptions import *
 from mgmt_engine.constants import *
 from mgmt_engine.key_storage import KeyStorage, InvalidPassword
@@ -18,6 +18,7 @@ from mgmt_cli.base_cli import BaseMgmtCLIHandler
 
 from pymongo import MongoClient
 import pexpect
+import paramiko
 
 KS_PATH = './tests/ks/test.p12'
 KS_PASSWD = 'node'
@@ -27,6 +28,65 @@ USERSMGMT_CMDS = BASIC_CMDS + ['CHANGE-USER-ROLES', 'CREATE-USER',\
                         'REMOVE-USER', 'SHOW-ROLES', 'USER-INFO'] 
 
 PROMT = 'mgmt-cli>'
+
+class MockedExecutor:
+    def __init__(self):
+        self.log = ''
+
+    def close(self):
+        pass
+
+class MockedSSHClient:
+    COMMANDS_MAP = {}
+
+    CONNECT_LOG = []
+    COMMANDS_LOG = []
+
+    @classmethod
+    def clear_logs(cls):
+        cls.CONNECT_LOG = []
+        cls.COMMANDS_LOG = []
+
+    def __init__(self, pri=None, timeout=10):
+        pass
+
+    def get_pubkey(self):
+        return 'thisismockedfakepublickey'
+
+    def __make_executor(self, cli):
+        def executor(command, timeout=None):
+            self.COMMANDS_LOG.append(command)
+            cli.log += '\n# %s\n'%command
+            if command in self.COMMANDS_MAP:
+                retcode, out = self.COMMANDS_MAP[command]
+            else:
+                retcode = 0
+                out = 'ok\n'
+            cli.log += out
+            return retcode
+        return executor
+
+    def __make_safe_exec(self, cli):
+        def safe_exec(cmd):
+            rcode = cli.execute(cmd)
+            if rcode:
+                raise MEOperException(cli.log+'\nERROR! Configuration failed!')
+
+            return rcode
+        return safe_exec
+
+    def connect(self, hostname, port=22, username=None, password=None, pkey=None):
+        cli = MockedExecutor()
+        if pkey:
+            pkey = paramiko.RSAKey.from_private_key(file_obj=MockFileObj(pkey))
+
+        self.CONNECT_LOG.append((hostname, port, username, password, pkey))
+        cli.execute = self.__make_executor(cli)
+        cli.safe_exec = self.__make_safe_exec(cli)
+        return cli
+
+
+
 
 import SocketServer
 class TelnetServer(SocketServer.TCPServer):
@@ -91,6 +151,9 @@ class TestMgmtCLI(unittest.TestCase):
         mgmt_api = ManagementEngineAPI(dbm, ks=KeyStorage(KS_PATH, KS_PASSWD))
 
         BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
+
+        m_ssh_cl = MockedSSHClient()
+        mgmt_api.get_ssh_client = lambda: m_ssh_cl
         TestMgmtCLI.thread = CLIThread(8022)
         TestMgmtCLI.thread.start()
         TestMgmtCLI.thread.wait_ran(2)
@@ -329,6 +392,65 @@ class TestMgmtCLI(unittest.TestCase):
         finally:
             cli.expect(pexpect.EOF)
             cli.close(force=True)
+
+    def test05_nodesmgmt_installphnode(self):
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('admin')
+            cli.expect('Password:')
+            cli.sendline('test123')
+            cli.expect(PROMT)
+
+            cli.sendline('create-user nodes-admin readonly nodesmanage')
+            cli.expect('password:')
+            cli.sendline('test')
+            cli.expect('password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('nodes-admin')
+            cli.expect('Password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+
+            TestMgmtCLI.CLI = cli
+            self._cmd('help install-physical-node', 'i-pnode') 
+            self._cmd('install-physical-node', 'Usage: INSTALL-PHYSICAL-NODE <node hostname>[:<ssh port>] <ssh user name> --pwd | <ssh key url>') 
+
+            self._cmd('i-pnode test_hostname.com:322 test_user /test/file', 'Error! [60] Unsupported URL type!')
+            self._cmd('i-pnode test_hostname.com:322 test_user file:/test/file', 'Error! [50] Local file "test/file" does not found!')
+            self._cmd('i-pnode test_hostname.com:322 test_user file:/./tests/cli_test.py', 'Unexpected error: not a valid RSA private key file')
+            self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 0, MockedSSHClient.CONNECT_LOG)
+
+            dbm = MgmtDatabaseManager('localhost')
+            node = dbm.get_physical_node('test_hostname.com')
+            self.assertEqual(node, None)
+
+            self._cmd('i-pnode test_hostname.com:322 test_user file:/./tests/ks/key.pem', 'configured!')
+            self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 2, MockedSSHClient.CONNECT_LOG)
+            self.assertEqual(MockedSSHClient.CONNECT_LOG[1], ('test_hostname.com', 322, 'fabnet', None, None))
+            self.assertEqual(MockedSSHClient.CONNECT_LOG[0][:4], ('test_hostname.com', 322, 'test_user', None))
+            self.assertTrue(MockedSSHClient.CONNECT_LOG[0][4] is not None)
+            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 9)#, MockedSSHClient.COMMANDS_LOG)
+            MockedSSHClient.clear_logs()
+            
+            node = dbm.get_physical_node('test_hostname.com')
+            self.assertNotEqual(node, None)
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+            TestMgmtCLI.CLI = None
 
 if __name__ == '__main__':
     unittest.main()
