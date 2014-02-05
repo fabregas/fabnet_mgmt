@@ -72,6 +72,7 @@ class SSHClient:
             except ValueError:
                 raise Exception('Invalid return code. STDERR: %s'%out)
 
+            cli.output = out
             cli.log += out
             if ret_code:
                 cli.log += stderr.read()
@@ -96,6 +97,7 @@ class SSHClient:
             pkey = self.__pri
         cli.connect(hostname, port, username, password, pkey, timeout=self.__timeout)
         cli.log = ''
+        cli.output = ''
         cli.execute = self.__make_executor(cli)
         cli.safe_exec = self.__make_safe_exec(cli)
         return cli

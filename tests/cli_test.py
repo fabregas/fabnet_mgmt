@@ -37,7 +37,11 @@ class MockedExecutor:
         pass
 
 class MockedSSHClient:
-    COMMANDS_MAP = {}
+    COMMANDS_MAP = {'grep MemTotal /proc/meminfo': (0, 'MemTotal:        7725544 kB\n'),
+                    'grep "model name" /proc/cpuinfo': (0, '''model name      : Intel(R) Core(TM) i7-3537U CPU @ 2.00GHz
+                    model name      : Intel(R) Core(TM) i7-3537U CPU @ 2.00GHz
+                    model name      : Intel(R) Core(TM) i7-3537U CPU @ 2.00GHz
+                    model name      : Intel(R) Core(TM) i7-3537U CPU @ 2.00GHz\n''')}
 
     CONNECT_LOG = []
     COMMANDS_LOG = []
@@ -62,6 +66,7 @@ class MockedSSHClient:
             else:
                 retcode = 0
                 out = 'ok\n'
+            cli.output = out
             cli.log += out
             return retcode
         return executor
@@ -441,11 +446,36 @@ class TestMgmtCLI(unittest.TestCase):
             self.assertEqual(MockedSSHClient.CONNECT_LOG[1], ('test_hostname.com', 322, 'fabnet', None, None))
             self.assertEqual(MockedSSHClient.CONNECT_LOG[0][:4], ('test_hostname.com', 322, 'test_user', None))
             self.assertTrue(MockedSSHClient.CONNECT_LOG[0][4] is not None)
-            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 9)#, MockedSSHClient.COMMANDS_LOG)
+            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 10)#, MockedSSHClient.COMMANDS_LOG)
             MockedSSHClient.clear_logs()
             
             node = dbm.get_physical_node('test_hostname.com')
             self.assertNotEqual(node, None)
+
+            cli.sendline('i-pnode test_hostname.com:322 test_user --pwd')
+            cli.expect('Password:')
+            cli.sendline('testpassword')
+            cli.expect('Error! \[55\]')
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+            TestMgmtCLI.CLI = None
+
+    def test07_nodesmgmt_show_nodes(self):
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('nodes-admin')
+            cli.expect('Password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+
+            TestMgmtCLI.CLI = cli
+
+            self._cmd('help show-nodes', ['shownodes', 'shnodes'])
+            self._cmd('show-nodes -p', ['test_hostname.com', 'HOSTNAME', ' 4 '])
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)

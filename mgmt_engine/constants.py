@@ -35,6 +35,9 @@ DBK_NODES = 'installed_nodes'
 DBK_NODETYPE = 'node_type'
 DBK_NODEADDR = 'node_addr'
 DBK_INSTALLDATE = 'install_date'
+DBK_MEMORY = 'memory'
+DBK_CPUMODEL = 'cpu_model'
+DBK_CORESCNT = 'cores_count'
 
 #user roles
 ROLE_RO = 'readonly'

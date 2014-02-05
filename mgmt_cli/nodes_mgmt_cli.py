@@ -16,6 +16,7 @@ from mgmt_engine.exceptions import MENotFoundException, MEInvalidArgException
 import os
 import urllib2
 import tempfile
+import argparse
 
 def download_url(url):
     if url.lower().startswith('http:/') or url.lower().startswith('ftp:/'):
@@ -52,4 +53,34 @@ class NodesMgmtCLIHandler:
                 params[0], params[1], pwd, key)
         self.writeresponse('Node "%s" is created and configured!'%node_host)
 
+    @cli_command(21, 'show-nodes', 'show_nodes', 'shnodes', 'shownodes')
+    def command_install_phy_node(self, params):
+        '''[--physical|-p] [--type|-t <node type>]
+        Show information about configured nodes
+        This command shows information about physical and logical nodes
+        that installed in the system
+        '''
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--physical', '-p', dest='is_phys', action='store_true', default=False)
+        parser.add_argument('--type', '-t', dest='node_type')
+        args = parser.parse_args(params)
+        filters = {}
+        if args.node_type:
+            filters['node_type'] = args.node_type
+        if args.is_phys:
+            filters['physical'] = True
+
+        nodes = self.mgmtManagementAPI.show_nodes(self.session_id, filters)
+
+        self.writeresponse('-'*100)
+        if args.is_phys:
+            self.writeresponse('%-20s %s %s %s'%('HOSTNAME',  \
+                        'MEMORY (Gb)'.center(15), 'CORES'.center(5), 'CPU MODEL'.center(60)))
+            self.writeresponse('-'*100)
+            for node in nodes:
+                self.writeresponse('%-20s %s %s %s'%(node[DBK_ID], \
+                        #node[DBK_INSTALLDATE].strftime('%d.%m.%Y %H:%M').center(20),\
+                        ('%.2f'%node[DBK_MEMORY]).center(15),\
+                        str(node[DBK_CORESCNT]).center(5),\
+                        str(node[DBK_CPUMODEL]).center(60)))
 
