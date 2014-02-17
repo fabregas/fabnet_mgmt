@@ -155,3 +155,16 @@ class MgmtDatabaseManager:
                                         DBK_NODEADDR: node_address, \
                                         DBK_INSTALLDATE: datetime.now()})
 
+    def set_release(self, node_type, release_url, version):
+        found = self.__mgmt_db[DBK_RELEASES].find_one({DBK_ID: node_type})
+        if found:
+            found[DBK_RELEASE_URL] = release_url
+            found[DBK_RELEASE_VERSION] = version
+            self.__mgmt_db[DBK_RELEASES].update({}, found, upsert=True)
+        else:
+            self.__mgmt_db[DBK_RELEASES].insert({DBK_ID: node_type, \
+                    DBK_RELEASE_URL: release_url, \
+                    DBK_RELEASE_VERSION: version})
+
+    def get_releases(self):
+        return self.__mgmt_db[DBK_RELEASES].find({})

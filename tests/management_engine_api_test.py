@@ -33,18 +33,20 @@ class TestManagementEngineAPI(unittest.TestCase):
             mgmt_api = ManagementEngineAPI(dbm)
 
         with self.assertRaises(MEInvalidConfigException):
-            ManagementEngineAPI.initial_configuration(dbm, '', True, 'git@test.com', '')
+            ManagementEngineAPI.initial_configuration(dbm, '', True, 'test-addr')
         with self.assertRaises(MEInvalidConfigException):
-            ManagementEngineAPI.initial_configuration(dbm, 'test-cluster', True, 'git@test.com', '')
+            ManagementEngineAPI.initial_configuration(dbm, 'test-cluster', True, 'test-addr')
         with self.assertRaises(MEInvalidConfigException):
-            ManagementEngineAPI.initial_configuration(dbm, 'sh', True, 'git@test.com', '')
+            ManagementEngineAPI.initial_configuration(dbm, 'sh', True, 'test-addr')
+        with self.assertRaises(MEInvalidConfigException):
+            ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, '')
 
-        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'git@test.com', '')
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'test-addr')
         with self.assertRaises(MEInvalidArgException):
             mgmt_api = ManagementEngineAPI(dbm)
 
         with self.assertRaises(MEAlreadyExistsException):
-            ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', False, 'git@test.com', '')
+            ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', False, '')
 
         dbm.set_cluster_config({DBK_CONFIG_SECURED_INST: '0'})
         mgmt_api = ManagementEngineAPI(dbm)

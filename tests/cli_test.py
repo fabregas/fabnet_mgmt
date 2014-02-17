@@ -55,7 +55,7 @@ class MockedSSHClient:
         pass
 
     def get_pubkey(self):
-        return 'thisismockedfakepublickey'
+        return 'AAAAB3NzaC1yc2EAAAADAQABAAABAQCdVmnvGPuCgXSnnb01wJoIg79+ObUck0Gwssda3Ff+mMuvXcwkXHZYuUB8g68STwrsM5eOIncDwGpbKmJI4bFRct8mZ6yyyFnPxm0p6KVjIAxXydp7eElBKfM3Xxaro6Lj1+IAXuRTWJx/NYGa3kHtalNUuveLvCx+WMifv42hE6u1Tgok1kkzEqXt4hQmgc/aG7g3I8zkFtzgzqdwafedfmuJ7ltGDJVf5JoEGFlw+e1hhjSFjHV+nXf6nGobcXP0blVGZUL7aOegnbATFPQ//DqnnGlBEvUCxIZkmQQtgN8qj71IqbCr+JYUnGByHTdaT2gQz8Lif8Iy9RXZqahr'
 
     def __make_executor(self, cli):
         def executor(command, timeout=None):
@@ -152,7 +152,7 @@ class TestMgmtCLI(unittest.TestCase):
         MgmtDatabaseManager.MGMT_DB_NAME = 'test_fabnet_mgmt_db'
 
         dbm = MgmtDatabaseManager('localhost')
-        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'git@test.com', '')
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'https://127.0.0.1:8888')
         mgmt_api = ManagementEngineAPI(dbm, ks=KeyStorage(KS_PATH, KS_PASSWD))
 
         BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
@@ -456,6 +456,10 @@ class TestMgmtCLI(unittest.TestCase):
             cli.expect('Password:')
             cli.sendline('testpassword')
             cli.expect('Error! \[55\]')
+            cli.expect(PROMT)
+
+            self._cmd('help show-ssh-key', 'sh-sshkey')
+            self._cmd('show-ssh-key', 'ssh-rsa')
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
@@ -475,7 +479,38 @@ class TestMgmtCLI(unittest.TestCase):
             TestMgmtCLI.CLI = cli
 
             self._cmd('help show-nodes', ['shownodes', 'shnodes'])
+            self._cmd('show-nodes -err', 'Error! [60]')
             self._cmd('show-nodes -p', ['test_hostname.com', 'HOSTNAME', ' 4 '])
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+            TestMgmtCLI.CLI = None
+
+    def test08_nodesmgmt_sw_releases(self):
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('nodes-admin')
+            cli.expect('Password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+
+            TestMgmtCLI.CLI = cli
+
+            self._cmd('help show-releases', ['sh-releases'])
+            self._cmd('show-releases', [], ['Error', 'error'])
+
+            self._cmd('help set-release', ['software release'])
+            self._cmd('set-release', 'Usage: SET-RELEASE <node type> <release url>')
+            self._cmd('set-release test-node-type', 'Usage: SET-RELEASE <node type> <release url>')
+            self._cmd('set-release test-node-type test', 'unknown url')
+            self._cmd('set-release test-node-type file://%s/tests/data/invalid_release'%os.path.abspath('.'), 'File is not a zip file')
+            self._cmd('set-release test-node-type file://%s/tests/data/novers_release.zip'%os.path.abspath('.'), 'installed')
+            self._cmd('set-release DHT file://%s/tests/data/valid_release.zip'%os.path.abspath('.'), 'installed')
+
+            self._cmd('show-releases', ['unknown', '0.9a-2412'], ['Error', 'error'])
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)

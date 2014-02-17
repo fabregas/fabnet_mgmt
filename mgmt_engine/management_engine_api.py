@@ -105,7 +105,7 @@ class SSHClient:
 
 class ManagementEngineAPI(object):
     @classmethod
-    def initial_configuration(cls, db_mgr, cluster_name, is_secured_inst, node_git_repo, ca_addr):
+    def initial_configuration(cls, db_mgr, cluster_name, is_secured_inst, ca_addr):
         config = db_mgr.get_cluster_config()
         if config.has_key(DBK_CONFIG_CLNAME):
             raise MEAlreadyExistsException('Management engine is already configured!') 
@@ -113,9 +113,11 @@ class ManagementEngineAPI(object):
         if not re.match('\w\w\w+$', cluster_name):
             raise MEInvalidConfigException('Cluster name is invalid!')
 
+        if is_secured_inst and not ca_addr:
+            raise MEInvalidConfigException('CA address expected for secure installation!')
+
         cfg = {DBK_CONFIG_CLNAME: cluster_name,
                 DBK_CONFIG_SECURED_INST: '1' if is_secured_inst else '0',
-                DBK_CONFIG_NODE_GIT_REPO: node_git_repo,
                 DBK_CONFIG_CA_ADDR: ca_addr}
 
         db_mgr.set_cluster_config(cfg)
@@ -184,6 +186,7 @@ class ManagementEngineAPI(object):
  
         pkey = paramiko.RSAKey.from_private_key(file_obj=MockFileObj(ssh_key), password=pwd)
         return pkey
+
 
     def check_roles(self, session_id, need_roles):
         user = self._db_mgr.get_user_by_session(session_id)
