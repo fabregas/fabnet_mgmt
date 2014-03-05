@@ -16,8 +16,8 @@ DBK_SESSIONS = 'sessions'
 
 DBK_ID = '_id'
 DBK_CONFIG_CLNAME = 'cluster_name'
+DBK_CONFIG_CA_ADDR = 'ca_address'
 DBK_CONFIG_SSH_KEY = '__ssh_key'
-DBK_CONFIG_CA_ADDR = '__ca_addr'
 DBK_CONFIG_SECURED_INST = '__is_secured_installation' 
 
 DBK_RELEASES = 'releases'
@@ -25,6 +25,8 @@ DBK_RELEASE_URL = 'release_url'
 DBK_RELEASE_VERSION = 'release_version'
 
 DBK_USERNAME = 'username'
+DBK_HOMEDIR = 'homedir'
+DBK_PHNODEID = 'ph_node_id'
 DBK_START_DT = 'start_dt'
 DBK_ROLES = 'roles'
 DBK_USER_PWD_HASH = 'password_hash'

@@ -158,6 +158,22 @@ class ManagementEngineAPI(object):
     def update_config(self, new_config):
         self._db_mgr.set_cluster_config(new_config)
 
+    def get_node_config(self, node_name):
+        '''Node config structure:
+                Node:
+                    <global param>: <value>
+                    ...
+                    <node param>: <value>
+                    ...
+                Init:
+                    NODE_NAME: <value>
+                    NODE_TYPE: <value>
+                    FABNET_NODE_HOST: <value>
+                    FABNET_NODE_PORT: <value>
+                    FIRST_NEIGHBOUR: <value>
+        '''
+        pass
+
     def is_secured_installation(self):
         sec = self.get_config_var(DBK_CONFIG_SECURED_INST)
         if sec:

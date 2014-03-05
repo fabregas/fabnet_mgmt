@@ -398,7 +398,7 @@ class TestMgmtCLI(unittest.TestCase):
             cli.expect(pexpect.EOF)
             cli.close(force=True)
 
-    def test05_nodesmgmt_installphnode(self):
+    def test05_nodesmgmt_sw_releases(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
         cli.logfile_read = sys.stdout
         try:
@@ -429,6 +429,36 @@ class TestMgmtCLI(unittest.TestCase):
             cli.expect(PROMT)
 
             TestMgmtCLI.CLI = cli
+
+            self._cmd('help show-releases', ['sh-releases'])
+            self._cmd('show-releases', [], ['Error', 'error'])
+
+            self._cmd('help set-release', ['software release'])
+            self._cmd('set-release', 'Usage: SET-RELEASE <node type> <release url>')
+            self._cmd('set-release test-node-type', 'Usage: SET-RELEASE <node type> <release url>')
+            self._cmd('set-release test-node-type test', 'unknown url')
+            self._cmd('set-release test-node-type file://%s/tests/data/invalid_release'%os.path.abspath('.'), 'File is not a zip file')
+            self._cmd('set-release test-node-type file://%s/tests/data/novers_release.zip'%os.path.abspath('.'), 'installed')
+            self._cmd('set-release DHT file://%s/tests/data/valid_release.zip'%os.path.abspath('.'), 'installed')
+
+            self._cmd('show-releases', ['unknown', '0.9a-2412'], ['Error', 'error'])
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+            TestMgmtCLI.CLI = None
+
+    def test06_nodesmgmt_installnodes(self):
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('nodes-admin')
+            cli.expect('Password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+
+            TestMgmtCLI.CLI = cli
             self._cmd('help install-physical-node', 'i-pnode') 
             self._cmd('install-physical-node', 'Usage: INSTALL-PHYSICAL-NODE <node hostname>[:<ssh port>] <ssh user name> --pwd | <ssh key url>') 
 
@@ -446,7 +476,7 @@ class TestMgmtCLI(unittest.TestCase):
             self.assertEqual(MockedSSHClient.CONNECT_LOG[1], ('test_hostname.com', 322, 'fabnet', None, None))
             self.assertEqual(MockedSSHClient.CONNECT_LOG[0][:4], ('test_hostname.com', 322, 'test_user', None))
             self.assertTrue(MockedSSHClient.CONNECT_LOG[0][4] is not None)
-            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 10)#, MockedSSHClient.COMMANDS_LOG)
+            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 12)#, MockedSSHClient.COMMANDS_LOG)
             MockedSSHClient.clear_logs()
             
             node = dbm.get_physical_node('test_hostname.com')
@@ -460,6 +490,19 @@ class TestMgmtCLI(unittest.TestCase):
 
             self._cmd('help show-ssh-key', 'sh-sshkey')
             self._cmd('show-ssh-key', 'ssh-rsa')
+
+            self._cmd('help install-node', 'i-node')
+            self._cmd('install-node', 'Usage: INSTALL-NODE')
+            self._cmd('install-node some-host testnode dht externa_addr_test_node', \
+                    'Error! [50] Physical node "some-host" does not installed')
+            self._cmd('install-node test_hostname.com testnode unkn-type externa_addr_test_node:2222', \
+                    'Error! [50] Node type "UNKN-TYPE" does not configured in the system!')
+            self._cmd('install-node test_hostname.com test-#@node dht externa_addr_test_node:2222', \
+                    'Error! [20] Invalid node name')
+            self._cmd('install-node test_hostname.com test_node01 dht externa_addr_test_node:2222', \
+                    'installed')
+            self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 1, MockedSSHClient.CONNECT_LOG)
+            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 2, MockedSSHClient.COMMANDS_LOG)
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
@@ -481,13 +524,15 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('help show-nodes', ['shownodes', 'shnodes'])
             self._cmd('show-nodes -err', 'Error! [60]')
             self._cmd('show-nodes -p', ['test_hostname.com', 'HOSTNAME', ' 4 '])
+
+            self._cmd('shnodes', ['test_node01'])
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
             cli.close(force=True)
             TestMgmtCLI.CLI = None
 
-    def test08_nodesmgmt_sw_releases(self):
+    def test08_nodesmgmt_remove_nodes(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
         cli.logfile_read = sys.stdout
         try:
@@ -499,23 +544,50 @@ class TestMgmtCLI(unittest.TestCase):
 
             TestMgmtCLI.CLI = cli
 
-            self._cmd('help show-releases', ['sh-releases'])
-            self._cmd('show-releases', [], ['Error', 'error'])
+            self._cmd('remove-physical-node', 'Usage: REMOVE-PHYSICAL-NODE <node hostname>')
+            self._cmd('help remove-physical-node', 'rm-pnode')
+            self._cmd('remove-physical-node some-unknown-node --force', 'Error! [50]')
+            self._cmd('remove-physical-node test_hostname.com --invalid', 'Error! [60] Invalid argument')
 
-            self._cmd('help set-release', ['software release'])
-            self._cmd('set-release', 'Usage: SET-RELEASE <node type> <release url>')
-            self._cmd('set-release test-node-type', 'Usage: SET-RELEASE <node type> <release url>')
-            self._cmd('set-release test-node-type test', 'unknown url')
-            self._cmd('set-release test-node-type file://%s/tests/data/invalid_release'%os.path.abspath('.'), 'File is not a zip file')
-            self._cmd('set-release test-node-type file://%s/tests/data/novers_release.zip'%os.path.abspath('.'), 'installed')
-            self._cmd('set-release DHT file://%s/tests/data/valid_release.zip'%os.path.abspath('.'), 'installed')
+            cli.sendline('rm-pnode test_hostname.com')
+            cli.expect('Are you sure')
+            cli.sendline('n')
+            cli.expect(PROMT)
 
-            self._cmd('show-releases', ['unknown', '0.9a-2412'], ['Error', 'error'])
+            cli.sendline('rm-pnode test_hostname.com')
+            cli.expect('Are you sure')
+            cli.sendline('Y')
+            cli.readline()
+            cli.expect('Error! \[20\] Physical node')
+            cli.expect(PROMT)
+
+
+            self._cmd('remove-node', 'Usage: REMOVE-NODE <node name>')
+            self._cmd('help remove-node', 'rm-node')
+            self._cmd('remove-node some-unknown-node --force', 'Error! [50]')
+            self._cmd('remove-node test_node01 --invalid', 'Error! [60] Invalid argument')
+            cli.sendline('rm-node test_node01')
+            cli.expect('Are you sure')
+            cli.sendline('n')
+            cli.expect(PROMT)
+
+            cli.sendline('rm-node test_node01')
+            cli.expect('Are you sure')
+            cli.sendline('Y')
+            cli.readline()
+            cli.expect('removed')
+            cli.expect(PROMT)
+
+
+            self._cmd('rm-pnode test_hostname.com --force', 'removed')
+
+            self._cmd('help')
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
             cli.close(force=True)
             TestMgmtCLI.CLI = None
+
 
 if __name__ == '__main__':
     unittest.main()

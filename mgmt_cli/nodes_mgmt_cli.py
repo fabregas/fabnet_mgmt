@@ -94,7 +94,7 @@ class NodesMgmtCLIHandler:
 
 
     @cli_command(24, 'show-nodes', 'show_nodes', 'shnodes', 'shownodes')
-    def command_install_phy_node(self, params):
+    def command_show_nodes(self, params):
         '''[--physical|-p] [--type|-t <node type>]
         Show information about configured nodes
         This command shows information about physical and logical nodes
@@ -124,4 +124,59 @@ class NodesMgmtCLIHandler:
                         ('%.0f'%node[DBK_MEMORY]).center(15),\
                         str(node[DBK_CORESCNT]).center(5),\
                         str(node[DBK_CPUMODEL]).center(60)))
+        else:
+            self.writeresponse('%-20s %s %s %s'%('NODE NAME',  \
+                        'HOSTNAME'.center(20), 'TYPE'.center(10), 'ADDRESS'.center(20)))
+            self.writeresponse('-'*100)
+            for node in nodes:
+                self.writeresponse('%-20s %s %s %s'%(node[DBK_ID], \
+                        node[DBK_PHNODEID].center(20),\
+                        node[DBK_NODETYPE].center(10),\
+                        node[DBK_NODEADDR].center(20)))
+
+    @cli_command(25, 'install-node', 'install_fabnet_node', 'installnode', 'i-node', validator=(str,str,str,str))
+    def command_install_fabnet_node(self, params):
+        '''<physical node hostname> <node name> <node type> <node address>[:<custom port>]
+        Install new fabnet node
+        This command install new fabnet node to management database
+        and configure it according to specified node type
+        Node address should be hostname or IP address that is visible to other nodes in network
+        '''
+        self.mgmtManagementAPI.install_fabnet_node(self.session_id, params[0], params[1], params[2], params[3])
+        self.writeresponse('Node "%s" is installed!'%params[1].lower())
+
+    @cli_command(26, 'remove-physical-node', 'remove_physical_node', 'removepnode', 'rm-pnode', validator=(str,(str, 0)))
+    def command_remove_phy_node(self, params):
+        '''<node hostname> [--force]
+        Remove physical node from the system
+        This command remove physical node from management database
+        if no one fabnet node configured on this physical node
+        '''
+        if len(params) > 1:
+            if params[1] != '--force':
+                raise MEInvalidArgException('Invalid argument "%s"'%params[1])
+        else:
+            resp = self.readline(prompt='Are you sure you want remove physical node "%s"? '%params[0], echo=True)
+            if resp.lower() not in ['y', 'yes']:
+                return
+
+        self.mgmtManagementAPI.remove_physical_node(self.session_id, params[0])
+        self.writeresponse('Node "%s" was removed from database!'%params[0])
+
+    @cli_command(27, 'remove-node', 'remove_fabnet_node', 'removenode', 'rm-node', validator=(str,(str, 0)))
+    def command_remove_phy_node(self, params):
+        '''<node name> [--force]
+        Remove fabnet node from the system
+        This command remove fabnet node from management database
+        '''
+        if len(params) > 1:
+            if params[1] != '--force':
+                raise MEInvalidArgException('Invalid argument "%s"'%params[1])
+        else:
+            resp = self.readline(prompt='Are you sure you want remove fabnet node "%s"? '%params[0], echo=True)
+            if resp.lower() not in ['y', 'yes']:
+                return
+
+        self.mgmtManagementAPI.remove_fabnet_node(self.session_id, params[0])
+        self.writeresponse('Node "%s" was removed from database!'%params[0])
 

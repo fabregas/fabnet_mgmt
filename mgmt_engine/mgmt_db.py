@@ -149,11 +149,25 @@ class MgmtDatabaseManager:
     def get_physical_nodes(self, filter_map={}):
         return self.__mgmt_db[DBK_PHY_NODES].find(filter_map)
 
-    def append_node(self, node_name, node_type, node_address):
+    def remove_physical_node(self, ph_node_host):
+        self.__mgmt_db[DBK_PHY_NODES].remove({DBK_ID: ph_node_host})
+
+    def append_fabnet_node(self, ph_node_host, node_name, node_type, node_addr, home_dir_name):
         self.__mgmt_db[DBK_NODES].insert({DBK_ID: node_name, \
+                                        DBK_PHNODEID: ph_node_host, \
                                         DBK_NODETYPE: node_type, \
-                                        DBK_NODEADDR: node_address, \
+                                        DBK_NODEADDR: node_addr, \
+                                        DBK_HOMEDIR: home_dir_name, \
                                         DBK_INSTALLDATE: datetime.now()})
+
+    def get_fabnet_node(self, node_name):
+        return self.__mgmt_db[DBK_NODES].find_one({DBK_ID: node_name})
+
+    def get_fabnet_nodes(self, filter_map={}):
+        return self.__mgmt_db[DBK_NODES].find(filter_map)
+
+    def remove_fabnet_node(self, node_name):
+        self.__mgmt_db[DBK_NODES].remove({DBK_ID: node_name})
 
     def set_release(self, node_type, release_url, version):
         found = self.__mgmt_db[DBK_RELEASES].find_one({DBK_ID: node_type})

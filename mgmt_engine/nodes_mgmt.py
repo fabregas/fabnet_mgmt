@@ -1,4 +1,4 @@
-
+import re
 import urllib2
 import zipfile
 import tempfile
@@ -53,7 +53,9 @@ def install_physical_node(engine, session_id, ssh_address, ssh_user, ssh_pwd, ss
     cli_inst.safe_exec('echo "ssh-rsa %s" | sudo tee -a /home/%s/.ssh/authorized_keys'%(ssh_cli.get_pubkey(), USER_NAME))
     cli_inst.safe_exec('sudo chmod 600 /home/%s/.ssh/authorized_keys'%(USER_NAME,))
     cli_inst.safe_exec('sudo chown %s:%s -R /home/%s/.ssh/'%(USER_NAME, USER_NAME, USER_NAME))
-    cli_inst.safe_exec('sudo yum install -y git || apt-get install git')
+    cli_inst.safe_exec('sudo mkdir -p /opt/blik/fabnet/packages')
+    cli_inst.safe_exec('sudo chown %s:%s -R /opt/blik/fabnet'%(USER_NAME, USER_NAME))
+    cli_inst.safe_exec('sudo yum install -y python-setuptools || sudo apt-get install -y python-setuptools')
     cli_inst.close()
 
     #check connection with system ssh key
@@ -79,37 +81,69 @@ def install_physical_node(engine, session_id, ssh_address, ssh_user, ssh_pwd, ss
     return ssh_address
 
 @mgmt_api_method(ROLE_NM)
+def remove_physical_node(engine, session_id, ph_node_host):
+    f_nodes = engine._db_mgr.get_fabnet_nodes({DBK_PHNODEID: ph_node_host})
+    if f_nodes.count():
+        raise MEOperException('Physical node "%s" contain configured fabnet node(s)!'%ph_node_host)
+
+    node = engine._db_mgr.get_physical_node(ph_node_host)
+    if not node:
+        raise MENotFoundException('Physical node "%s" does not installed'%ph_node_host) 
+
+    engine._db_mgr.remove_physical_node(ph_node_host)
+
+@mgmt_api_method(ROLE_NM)
 def get_ssh_key(engine, session_id, ph_node_host=None):
     ssh_cli = engine.get_ssh_client()
     return 'ssh-rsa %s'%ssh_cli.get_pubkey()
 
 @mgmt_api_method(ROLE_NM)
-def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type):
+def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, node_addr):
+    node_name = node_name.lower()
+    node_type = node_type.upper()
+    
+    if not re.match('\w+$', node_name):
+        raise MEOperException('Invalid node name "%s"!'%node_name)
+
     node = engine._db_mgr.get_physical_node(ph_node_host)
     if not node:
         raise MENotFoundException('Physical node "%s" does not installed'%ph_node_host) 
 
-    val = engine.get_config_var(DBK_CONFIG_NODE_TYPES, {})
-    node_type_info = val.get(node_type.lower(), None)
-    if not node_type_info:
+    f_node = engine._db_mgr.get_fabnet_node(node_name)
+    if f_node:
+        raise MEAlreadyExistsException('Node "%s" is already exists in database!'%node_name) 
+
+    releases = engine._db_mgr.get_releases()
+    release_url = None
+    for release in releases:
+        if node_type == release[DBK_ID]:
+            release_url = release[DBK_RELEASE_URL] 
+            break
+
+    if not release_url:
         raise MENotFoundException('Node type "%s" does not configured in the system!'%node_type)
 
-    git_repo_url = node_type_info.get(DBK_CONFIG_GIT_REPO_URL, None)
-    if not git_repo_url:
-        raise MENotFoundException('Git repository URL does not configured for "%s" node type!'%node_type)
-    home_dir_name = node_type_info.get(DBK_CONFIG_HOMEDIR_NAME, '%s_node_home'%node_type.lower())
+    home_dir_name = '%s_node_home'%node_name
     
     ssh_cli = engine.get_ssh_client()
     cli_inst = ssh_cli.connect(ph_node_host, node[DBK_SSHPORT], USER_NAME)
 
-    repo_dir = '%s_node_repo'%node_type.lower()
-    cli_inst.safe_exec('git clone %s %s'%(git_repo_url, repo_dir))
-    cli_inst.safe_exec('cd %s'%repo_dir)
-    cli_inst.safe_exec('sudo make install')
+    cmd = 'PYTHONPATH="/opt/blik/fabnet/packages" easy_install --install-dir=/opt/blik/fabnet/packages '\
+                '--prefix=/opt/blik/fabnet  --record=/opt/blik/fabnet/%s_package_files.lst %s'
+    cli_inst.safe_exec(cmd % (node_type.lower(), release_url))
+    cli_inst.safe_exec('mkdir -p %s'%home_dir_name)
     cli_inst.close()
     
-    engine._db_mgr.append_fabnet_node(ph_node_host, node_name, node_type, home_dir_name)
+    engine._db_mgr.append_fabnet_node(ph_node_host, node_name, node_type, node_addr, home_dir_name)
 
+@mgmt_api_method(ROLE_NM)
+def remove_fabnet_node(engine, session_id, node_name):
+    node_name = node_name.lower()
+    f_node = engine._db_mgr.get_fabnet_node(node_name)
+    if not f_node:
+        raise MENotFoundException('Node "%s" does not installed'%node_name) 
+    
+    engine._db_mgr.remove_fabnet_node(node_name)
 
 @mgmt_api_method(ROLE_RO)
 def show_nodes(engine, session_id, filters={}, rows=None):
@@ -122,7 +156,10 @@ def show_nodes(engine, session_id, filters={}, rows=None):
     if is_phys:
         data = engine._db_mgr.get_physical_nodes()
     else:
-        raise Exception('not implemented')
+        filter_exp = {}
+        if 'node_type' in filters:
+            filter_exp = {'node_type': filters['node_type']}
+        data = engine._db_mgr.get_fabnet_nodes(filter_exp)
 
     ret_data = []
     for item in data:
@@ -148,7 +185,7 @@ def set_release(engine, session_id, node_type, release_url):
     finally:
         f.close()
 
-    node_type = node_type.lower()
+    node_type = node_type.upper()
     engine._db_mgr.set_release(node_type, release_url, version)
 
 @mgmt_api_method(ROLE_RO)
