@@ -12,18 +12,17 @@ class InvalidPassword(Exception):
 
 OPENSSL_BIN = 'openssl'
 
-def exec_openssl(command, stdin=None, cwd=None):
-    c = [OPENSSL_BIN]
-    c.extend(command)
+def exec_openssl(command, stdin=None):
+    cmd = [OPENSSL_BIN]
+    cmd.extend(command)
 
-    #print ' '.join(c)
-    proc = subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.PIPE, \
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, \
             stdin=subprocess.PIPE)
     stdout_value, stderr_value = proc.communicate(stdin)
 
     out = stdout_value
     if stderr_value:
-        out += '\n%s'%stderr_value
+        out += '\n%s' % stderr_value
     if proc.returncode != 0:
         raise Exception('OpenSSL error: %s'%out)
 
@@ -33,8 +32,8 @@ class TmpFile:
     def __init__(self):
         self.__fd = None
         self.__path = None
-        fd, self.__path = tempfile.mkstemp('-nimbusfs')
-        self.__fd = os.fdopen(fd, 'wb')
+        f_descr, self.__path = tempfile.mkstemp('-nimbusfs')
+        self.__fd = os.fdopen(f_descr, 'wb')
 
     @property
     def name(self):
@@ -62,6 +61,7 @@ class KeyStorage:
         self.__path = path
         self.__pwd = password
         self.__private = None
+        self.__cert = None
 
         if os.path.exists(self.__path):
             self.load()
@@ -72,7 +72,7 @@ class KeyStorage:
         tmp_pri.write(private)
         tmp_pri.flush()
 
-        retcode, out = exec_openssl(['pkcs12', '-export', '-inkey', tmp_pri.name, \
+        retcode, _ = exec_openssl(['pkcs12', '-export', '-inkey', tmp_pri.name, \
                 '-nocerts', '-out', self.__path, '-password', 'stdin'], self.__pwd)
 
         tmp_pri.close()

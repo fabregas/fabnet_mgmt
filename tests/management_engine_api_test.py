@@ -135,7 +135,7 @@ class TestManagementEngineAPI(unittest.TestCase):
 
     def test01_operations(self):
         dbm = MgmtDatabaseManager('localhost')
-        mgmt_api = ManagementEngineAPI(dbm, ks=KeyStorage(KS_PATH, KS_PASSWD))
+        mgmt_api = ManagementEngineAPI(dbm, admin_ks=KeyStorage(KS_PATH, KS_PASSWD))
         key = mgmt_api.get_ssh_client().get_pubkey()
         self.assertTrue(len(key)>0)
         self.assertEqual(key, TestManagementEngineAPI.key)
@@ -144,7 +144,7 @@ class TestManagementEngineAPI(unittest.TestCase):
         config = {DBK_CONFIG_SECURED_INST: '1'}
         mgmt_api.update_config(config)
         
-        mgmt_api = ManagementEngineAPI(dbm, ks=KeyStorage(KS_PATH, KS_PASSWD))
+        mgmt_api = ManagementEngineAPI(dbm, admin_ks=KeyStorage(KS_PATH, KS_PASSWD))
         key = mgmt_api.get_ssh_client().get_pubkey()
         self.assertTrue(mgmt_api.is_secured_installation())
         self.assertTrue(len(key)>0)

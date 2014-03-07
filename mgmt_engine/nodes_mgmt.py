@@ -3,18 +3,20 @@ import urllib2
 import zipfile
 import tempfile
 
-from mgmt_engine.decorators import *
-from mgmt_engine.constants import *
-from mgmt_engine.exceptions import *
+from mgmt_engine.decorators import MgmtApiMethod
+from mgmt_engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
+        USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT 
+from mgmt_engine.exceptions import MEAlreadyExistsException, \
+        MEOperException, MENotFoundException 
 
 
-@mgmt_api_method(ROLE_RO)
+@MgmtApiMethod(ROLE_RO)
 def get_cluster_config(engine, session_id):
-    return engine._db_mgr.get_cluster_config()
+    return engine.db_mgr().get_cluster_config()
 
-@mgmt_api_method(ROLE_CF)
+@MgmtApiMethod(ROLE_CF)
 def configure_cluster(engine, session_id, config):
-    engine._db_mgr.set_cluster_config(config)
+    engine.db_mgr().set_cluster_config(config)
 
 
 def to_mb(str_val):
@@ -31,7 +33,7 @@ def to_mb(str_val):
         return val*1000.
     raise Exception('to_gb error: invalid argument "%s"'%str_val)
 
-@mgmt_api_method(ROLE_NM)
+@MgmtApiMethod(ROLE_NM)
 def install_physical_node(engine, session_id, ssh_address, ssh_user, ssh_pwd, ssh_key):
     ssh_cli = engine.get_ssh_client()
     if ':' in ssh_address:
@@ -40,7 +42,7 @@ def install_physical_node(engine, session_id, ssh_address, ssh_user, ssh_pwd, ss
     else:
         port = 22
 
-    node = engine._db_mgr.get_physical_node(ssh_address)
+    node = engine.db_mgr().get_physical_node(ssh_address)
     if node:
         raise MEAlreadyExistsException('Physical node "%s" is already exists in database!'%ssh_address) 
 
@@ -77,27 +79,27 @@ def install_physical_node(engine, session_id, ssh_address, ssh_user, ssh_pwd, ss
     cpu_model = ' '.join(cpu_model.split())
     cli_inst.close()
     
-    engine._db_mgr.append_physical_node(ssh_address, port, USER_NAME, mem, cpu_model, len(cores))
+    engine.db_mgr().append_physical_node(ssh_address, port, USER_NAME, mem, cpu_model, len(cores))
     return ssh_address
 
-@mgmt_api_method(ROLE_NM)
+@MgmtApiMethod(ROLE_NM)
 def remove_physical_node(engine, session_id, ph_node_host):
-    f_nodes = engine._db_mgr.get_fabnet_nodes({DBK_PHNODEID: ph_node_host})
+    f_nodes = engine.db_mgr().get_fabnet_nodes({DBK_PHNODEID: ph_node_host})
     if f_nodes.count():
         raise MEOperException('Physical node "%s" contain configured fabnet node(s)!'%ph_node_host)
 
-    node = engine._db_mgr.get_physical_node(ph_node_host)
+    node = engine.db_mgr().get_physical_node(ph_node_host)
     if not node:
         raise MENotFoundException('Physical node "%s" does not installed'%ph_node_host) 
 
-    engine._db_mgr.remove_physical_node(ph_node_host)
+    engine.db_mgr().remove_physical_node(ph_node_host)
 
-@mgmt_api_method(ROLE_NM)
+@MgmtApiMethod(ROLE_NM)
 def get_ssh_key(engine, session_id, ph_node_host=None):
     ssh_cli = engine.get_ssh_client()
-    return 'ssh-rsa %s'%ssh_cli.get_pubkey()
+    return 'ssh-rsa %s' % ssh_cli.get_pubkey()
 
-@mgmt_api_method(ROLE_NM)
+@MgmtApiMethod(ROLE_NM)
 def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, node_addr):
     node_name = node_name.lower()
     node_type = node_type.upper()
@@ -105,15 +107,15 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
     if not re.match('\w+$', node_name):
         raise MEOperException('Invalid node name "%s"!'%node_name)
 
-    node = engine._db_mgr.get_physical_node(ph_node_host)
+    node = engine.db_mgr().get_physical_node(ph_node_host)
     if not node:
         raise MENotFoundException('Physical node "%s" does not installed'%ph_node_host) 
 
-    f_node = engine._db_mgr.get_fabnet_node(node_name)
+    f_node = engine.db_mgr().get_fabnet_node(node_name)
     if f_node:
         raise MEAlreadyExistsException('Node "%s" is already exists in database!'%node_name) 
 
-    releases = engine._db_mgr.get_releases()
+    releases = engine.db_mgr().get_releases()
     release_url = None
     for release in releases:
         if node_type == release[DBK_ID]:
@@ -123,7 +125,7 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
     if not release_url:
         raise MENotFoundException('Node type "%s" does not configured in the system!'%node_type)
 
-    home_dir_name = '%s_node_home'%node_name
+    home_dir_name = '%s_node_home' % node_name
     
     ssh_cli = engine.get_ssh_client()
     cli_inst = ssh_cli.connect(ph_node_host, node[DBK_SSHPORT], USER_NAME)
@@ -134,18 +136,18 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
     cli_inst.safe_exec('mkdir -p %s'%home_dir_name)
     cli_inst.close()
     
-    engine._db_mgr.append_fabnet_node(ph_node_host, node_name, node_type, node_addr, home_dir_name)
+    engine.db_mgr().append_fabnet_node(ph_node_host, node_name, node_type, node_addr, home_dir_name)
 
-@mgmt_api_method(ROLE_NM)
+@MgmtApiMethod(ROLE_NM)
 def remove_fabnet_node(engine, session_id, node_name):
     node_name = node_name.lower()
-    f_node = engine._db_mgr.get_fabnet_node(node_name)
+    f_node = engine.db_mgr().get_fabnet_node(node_name)
     if not f_node:
         raise MENotFoundException('Node "%s" does not installed'%node_name) 
     
-    engine._db_mgr.remove_fabnet_node(node_name)
+    engine.db_mgr().remove_fabnet_node(node_name)
 
-@mgmt_api_method(ROLE_RO)
+@MgmtApiMethod(ROLE_RO)
 def show_nodes(engine, session_id, filters={}, rows=None):
     '''
     filters:
@@ -154,27 +156,27 @@ def show_nodes(engine, session_id, filters={}, rows=None):
     '''
     is_phys = filters.get('physical', False)
     if is_phys:
-        data = engine._db_mgr.get_physical_nodes()
+        data = engine.db_mgr().get_physical_nodes()
     else:
         filter_exp = {}
         if 'node_type' in filters:
             filter_exp = {'node_type': filters['node_type']}
-        data = engine._db_mgr.get_fabnet_nodes(filter_exp)
+        data = engine.db_mgr().get_fabnet_nodes(filter_exp)
 
     ret_data = []
     for item in data:
         ret_data.append(dict(item))
     return ret_data
 
-@mgmt_api_method(ROLE_NM)
+@MgmtApiMethod(ROLE_NM)
 def set_release(engine, session_id, node_type, release_url):
     response = urllib2.urlopen(release_url)
     zip_content = response.read()
-    f = tempfile.NamedTemporaryFile()
+    f_obj = tempfile.NamedTemporaryFile()
     try:
-        f.write(zip_content)
-        f.flush()
-        with zipfile.ZipFile(f.name) as z_file:
+        f_obj.write(zip_content)
+        f_obj.flush()
+        with zipfile.ZipFile(f_obj.name) as z_file:
             for item in z_file.namelist():
                 if item.endswith('VERSION') and item.count('/') == 1:
                     version = z_file.read(item)
@@ -183,30 +185,29 @@ def set_release(engine, session_id, node_type, release_url):
             else:
                 version = 'unknown'
     finally:
-        f.close()
+        f_obj.close()
 
     node_type = node_type.upper()
-    engine._db_mgr.set_release(node_type, release_url, version)
+    engine.db_mgr().set_release(node_type, release_url, version)
 
-@mgmt_api_method(ROLE_RO)
+@MgmtApiMethod(ROLE_RO)
 def get_releases(engine, session_id):
-    return engine._db_mgr.get_releases()
+    return engine.db_mgr().get_releases()
 
 
-
-@mgmt_api_method(ROLE_SS)
+@MgmtApiMethod(ROLE_SS)
 def start_nodes(self, session_id, nodes_list=[]):
     pass
 
-@mgmt_api_method(ROLE_SS)
+@MgmtApiMethod(ROLE_SS)
 def reload_nodes(self, session_id, nodes_list=[]):
     pass
 
-@mgmt_api_method(ROLE_SS)
+@MgmtApiMethod(ROLE_SS)
 def stop_nodes(self, session_id, nodes_list=[]):
     pass
 
-@mgmt_api_method(ROLE_SS)
+@MgmtApiMethod(ROLE_SS)
 def upgrade_nodes(self, session_id):
     pass
 

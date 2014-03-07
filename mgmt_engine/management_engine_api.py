@@ -18,10 +18,12 @@ import uuid
 import base64
 
 from mgmt_engine.constants import *
-from mgmt_engine.exceptions import *
+from mgmt_engine.exceptions import MEOperException, MEAlreadyExistsException, \
+        MEInvalidConfigException, MENotConfiguredException, MEInvalidArgException, \
+        MEAuthException, MEPermException 
 from mgmt_engine.key_storage import KeyStorage
 
-from mgmt_engine.decorators import *
+from mgmt_engine.decorators import MgmtApiMethod
 from mgmt_engine.users_mgmt import *
 from mgmt_engine.nodes_mgmt import *
 
@@ -31,8 +33,8 @@ class MockFileObj:
     def __init__(self, data):
         self.__data = data
 
-    def read(self, l=None):
-        ret = self.__data[:l]
+    def read(self, rlen=None):
+        ret = self.__data[:rlen]
         self.__data = self.__data[len(ret):]
         return ret
 
@@ -61,9 +63,9 @@ class SSHClient:
 
     def __make_executor(self, cli):
         def executor(command, timeout=None):
-            cli.log += '\n# %s\n'%command
+            cli.log += '\n# %s\n' % command
             command += ' ;echo $? 1>&2'
-            stdin, stdout, stderr = cli.exec_command(command, timeout=timeout, get_pty=True)
+            _, stdout, stderr = cli.exec_command(command, timeout=timeout, get_pty=True)
             out = stdout.read()
             try:
                 ret_code = out.splitlines()[-1]
@@ -122,19 +124,19 @@ class ManagementEngineAPI(object):
 
         db_mgr.set_cluster_config(cfg)
 
-    def __init__(self, db_mgr, ks=None):
-        mgmt_api_method.mgmt_engine_api = self
+    def __init__(self, db_mgr, admin_ks=None):
+        MgmtApiMethod.set_mgmt_engine_api(self)
 
-        self._db_mgr = db_mgr
-        self._admin_ks = ks
+        self.__db_mgr = db_mgr
+        self._admin_ks = admin_ks
         self.__check_configuration()
 
         key = self.__init_ssh()
         self.__ssh_client = SSHClient(key)
 
     def __del__(self):
-        if self._db_mgr:
-            self._db_mgr.close()
+        if self.__db_mgr:
+            self.__db_mgr.close()
 
     def __check_configuration(self):
         cluster_name = self.get_config_var(DBK_CONFIG_CLNAME)
@@ -148,15 +150,18 @@ class ManagementEngineAPI(object):
         if self.is_secured_installation() and not self._admin_ks:
             raise MEInvalidArgException('Key storage should be specified for secured installation!')
 
+    def db_mgr(self):
+        return self.__db_mgr
+
     def get_ssh_client(self):
         return self.__ssh_client
 
     def get_config_var(self, var, default=None):
-        config = self._db_mgr.get_cluster_config()
+        config = self.__db_mgr.get_cluster_config()
         return config.get(var, default)
 
     def update_config(self, new_config):
-        self._db_mgr.set_cluster_config(new_config)
+        self.__db_mgr.set_cluster_config(new_config)
 
     def get_node_config(self, node_name):
         '''Node config structure:
@@ -205,7 +210,7 @@ class ManagementEngineAPI(object):
 
 
     def check_roles(self, session_id, need_roles):
-        user = self._db_mgr.get_user_by_session(session_id)
+        user = self.__db_mgr.get_user_by_session(session_id)
         if user is None:
             raise MEAuthException('Unknown user session!')
 
@@ -216,13 +221,13 @@ class ManagementEngineAPI(object):
         raise MEPermException('User does not have permissions for this action!')
 
     def get_allowed_methods(self, session_id):
-        user = self._db_mgr.get_user_by_session(session_id)
+        user = self.__db_mgr.get_user_by_session(session_id)
         if user is None:
             raise MEAuthException('Unknown user session!')
 
         roles = user[DBK_ROLES] 
         methods = []
-        for item, item_roles in mgmt_api_method.roles_map.items():
+        for item, item_roles in MgmtApiMethod.iter_roles():
             if not item_roles:
                 methods.append(item)
                 continue
@@ -233,7 +238,7 @@ class ManagementEngineAPI(object):
         return methods
 
     def authenticate(self, username, password):
-        user = self._db_mgr.get_user_info(username)
+        user = self.__db_mgr.get_user_info(username)
         if not user:
             raise MEAuthException('User "%s" does not found'%username)
 
@@ -242,14 +247,14 @@ class ManagementEngineAPI(object):
             raise MEAuthException('Password is invalid')
 
         session_id = uuid.uuid4().hex
-        self._db_mgr.add_session(session_id, username)
+        self.__db_mgr.add_session(session_id, username)
         return session_id
 
     def logout(self, session_id):
-        self._db_mgr.del_session(session_id)
+        self.__db_mgr.del_session(session_id)
 
     def __getattr__(self, attr):
-        method = mgmt_api_method.methods.get(attr, None)
+        method = MgmtApiMethod.get_method(attr)
         if method is None:
             raise AttributeError('No "%s" found!'%attr)
         return method

@@ -35,7 +35,7 @@ DBK_LAST_SESSION = 'last_session'
 DBK_SSHPORT = 'ssh_port'
 DBK_USERNAME = 'user_name'
 
-DBK_PHY_NODES ='physical_nodes'
+DBK_PHY_NODES = 'physical_nodes'
 DBK_NODES = 'installed_nodes'
 DBK_NODETYPE = 'node_type'
 DBK_NODEADDR = 'node_addr'

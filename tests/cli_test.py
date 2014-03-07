@@ -153,7 +153,7 @@ class TestMgmtCLI(unittest.TestCase):
 
         dbm = MgmtDatabaseManager('localhost')
         ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'https://127.0.0.1:8888')
-        mgmt_api = ManagementEngineAPI(dbm, ks=KeyStorage(KS_PATH, KS_PASSWD))
+        mgmt_api = ManagementEngineAPI(dbm, admin_ks=KeyStorage(KS_PATH, KS_PASSWD))
 
         BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
 

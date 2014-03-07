@@ -23,11 +23,12 @@ class MEBaseException(Exception):
     ERR_NTCF = 80
 
     def __init__(self, ret_code, msg):
+        super(MEBaseException, self).__init__()
         self.ret_code = ret_code
         self.msg = msg
 
     def __repr__(self):
-        return '[%s] %s'%(self.ret_code, self.msg)
+        return '[%s] %s' % (self.ret_code, self.msg)
 
     def __str__(self):
         return self.__repr__()
@@ -73,5 +74,6 @@ class MEInvalidArgException(MEBaseException):
 
 class MENotConfiguredException(MEBaseException):
     def __init__(self, msg):
-        MEBaseException.__init__(self, self.ERR_NTCF, ': '.join(('Management engine does not configured', msg)))
+        MEBaseException.__init__(self, self.ERR_NTCF, \
+                ': '.join(('Management engine does not configured', msg)))
 

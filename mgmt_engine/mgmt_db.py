@@ -17,7 +17,8 @@ from datetime import datetime
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
-from mgmt_engine.exceptions import *
+from mgmt_engine.exceptions import MEDatabaseException, MEInvalidArgException, \
+                        MEAlreadyExistsException, MENotFoundException 
 from mgmt_engine.constants import *
 
 class MgmtDatabaseManager:
