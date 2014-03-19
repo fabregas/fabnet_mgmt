@@ -108,7 +108,7 @@ class SSHClient:
 class ManagementEngineAPI(object):
     @classmethod
     def initial_configuration(cls, db_mgr, cluster_name, is_secured_inst, ca_addr):
-        config = db_mgr.get_cluster_config()
+        config = db_mgr.get_config(None)
         if config.has_key(DBK_CONFIG_CLNAME):
             raise MEAlreadyExistsException('Management engine is already configured!') 
 
@@ -122,7 +122,7 @@ class ManagementEngineAPI(object):
                 DBK_CONFIG_SECURED_INST: '1' if is_secured_inst else '0',
                 DBK_CONFIG_CA_ADDR: ca_addr}
 
-        db_mgr.set_cluster_config(cfg)
+        db_mgr.set_config(None, cfg)
 
     def __init__(self, db_mgr, admin_ks=None):
         MgmtApiMethod.set_mgmt_engine_api(self)
@@ -157,11 +157,11 @@ class ManagementEngineAPI(object):
         return self.__ssh_client
 
     def get_config_var(self, var, default=None):
-        config = self.__db_mgr.get_cluster_config()
+        config = self.__db_mgr.get_config(None)
         return config.get(var, default)
 
     def update_config(self, new_config):
-        self.__db_mgr.set_cluster_config(new_config)
+        self.__db_mgr.set_config(None, new_config)
 
     def get_node_config(self, node_name):
         '''Node config structure:

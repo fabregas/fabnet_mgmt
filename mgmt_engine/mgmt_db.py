@@ -41,20 +41,6 @@ class MgmtDatabaseManager:
     def close(self):
         self.__client.close()
 
-    def get_cluster_config(self):
-        config = self.__mgmt_db[DBK_CLUSTER_CONFIG].find_one({})
-        if not config:
-            return {}
-        return config
-
-    def set_cluster_config(self, config):
-        old_config = self.__mgmt_db[DBK_CLUSTER_CONFIG].find_one({})
-        if old_config:
-            old_config.update(config)
-            config = old_config
-
-        self.__mgmt_db[DBK_CLUSTER_CONFIG].update({}, config, upsert=True)
-
     def get_user_info(self, username):
         user = self.__mgmt_db[DBK_USERS].find_one({DBK_USERNAME: username})
         return user
@@ -169,6 +155,43 @@ class MgmtDatabaseManager:
 
     def remove_fabnet_node(self, node_name):
         self.__mgmt_db[DBK_NODES].remove({DBK_ID: node_name})
+
+    def __check_node_name(self, node_name):
+        if node_name:
+            node = self.get_fabnet_node(node_name)
+            if not node:
+                raise MENotFoundException('Node "%s" does not found!'%node_name)
+        else:
+            node_name = None
+        return node_name
+
+    def set_config(self, node_name, config):
+        node_name = self.__check_node_name(node_name)
+
+        for key, value in config.items():
+            item = self.__mgmt_db[DBK_CLUSTER_CONFIG].find_one( \
+                    {DBK_NODE_NAME: node_name, DBK_CONFIG_PARAM: key})
+            if item:
+                self.__mgmt_db[DBK_CLUSTER_CONFIG].update({DBK_ID: item[DBK_ID]}, \
+                        {'$set': {DBK_CONFIG_VALUE: value}})
+            else:
+                cf_item = {DBK_CONFIG_PARAM: key,
+                            DBK_CONFIG_VALUE: value,
+                            DBK_NODE_NAME: node_name}
+                self.__mgmt_db[DBK_CLUSTER_CONFIG].insert(cf_item)
+
+    def get_config(self, node_name, ret_all=False):
+        node_name = self.__check_node_name(node_name)
+        config = self.__mgmt_db[DBK_CLUSTER_CONFIG].find({DBK_NODE_NAME: node_name})
+        if node_name and ret_all:
+            ret_config = self.get_config(node_name=None) #get global config
+        else:
+            ret_config = {}
+
+        for item in config:
+            ret_config[item[DBK_CONFIG_PARAM]] = item[DBK_CONFIG_VALUE]
+        return ret_config
+
 
     def set_release(self, node_type, release_url, version):
         found = self.__mgmt_db[DBK_RELEASES].find_one({DBK_ID: node_type})

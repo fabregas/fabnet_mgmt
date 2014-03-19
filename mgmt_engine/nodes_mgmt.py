@@ -10,15 +10,6 @@ from mgmt_engine.exceptions import MEAlreadyExistsException, \
         MEOperException, MENotFoundException 
 
 
-@MgmtApiMethod(ROLE_RO)
-def get_cluster_config(engine, session_id):
-    return engine.db_mgr().get_cluster_config()
-
-@MgmtApiMethod(ROLE_CF)
-def configure_cluster(engine, session_id, config):
-    engine.db_mgr().set_cluster_config(config)
-
-
 def to_mb(str_val):
     parts = str_val.split()
     if len(parts) != 2:
@@ -195,6 +186,37 @@ def get_releases(engine, session_id):
     return engine.db_mgr().get_releases()
 
 
+@MgmtApiMethod(ROLE_RO)
+def get_config(engine, session_id, node_name, ret_all=False):
+    return engine.db_mgr().get_config(node_name, ret_all)
+
+@MgmtApiMethod(ROLE_CF)
+def set_config(engine, session_id, node_name, config):
+    '''set configuration for specific node or globally
+    config - dict where key=config parameter, value=parameter value
+    If node_name is None - global config should be updated
+    '''
+    if type(config) != dict:
+        raise MEInvalidArgException('Config should be a dict')
+
+    engine.db_mgr().set_config(node_name, config)
+
+
+@MgmtApiMethod(ROLE_CF)
+def apply_config(engine, session_id, node_name):
+    if node_name:
+        node_objs = engine.db_mgr().get_fabnet_nodes({DBK_ID: node_name})
+        if not node_objs:
+            raise
+
+    node_objs = engine.db_mgr().get_fabnet_nodes({})
+
+    for node in node_objs:
+        config = engine.db_mgr().get_config(node_name, ret_all=True)
+        __set_config_to_node(node[DBK_NODEADDR], config)
+    
+
+
 @MgmtApiMethod(ROLE_SS)
 def start_nodes(self, session_id, nodes_list=[]):
     pass
@@ -210,5 +232,3 @@ def stop_nodes(self, session_id, nodes_list=[]):
 @MgmtApiMethod(ROLE_SS)
 def upgrade_nodes(self, session_id):
     pass
-
-

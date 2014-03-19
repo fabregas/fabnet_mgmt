@@ -180,3 +180,50 @@ class NodesMgmtCLIHandler:
         self.mgmtManagementAPI.remove_fabnet_node(self.session_id, params[0])
         self.writeresponse('Node "%s" was removed from database!'%params[0])
 
+    @cli_command(28, 'set-config', 'set_config', 'set-conf', validator=(str, str, (str, 0),))
+    def command_set_config(self, params):
+        '''<config parameter> <parameter value> [<node name>]
+        Set configuration of specific node or globally in database
+        This command sets configuration of fabnet node (if specified)
+        or global configuration
+        For applying configuration to nodes, use apply-config command
+        after set new configuration values
+        '''
+        node_name = None
+        if len(params) > 2:
+            node_name = params[2]
+
+        self.mgmtManagementAPI.set_config(self.session_id, node_name, {params[0]: params[1]})
+        self.writeresponse('Configuration was updated in database!')
+
+
+    @cli_command(29, 'show-config', 'get_config', 'showconfig', 'sh-conf', validator=((str, 0),))
+    def command_show_config(self, params):
+        '''[<node name> [--full]]
+        Show configuration of specific node or globally
+        This command shows configuration of fabnet node (if specified)
+        or global configuration
+        If --full flag is passed for node's configuration,
+        global configuration should be displayed too. 
+        '''
+        node_name = None
+        ret_all = False
+        if len(params) > 0:
+            node_name = params[0]
+            if len(params) > 1:
+                if '--full' in params:
+                    ret_all = True
+                else:
+                    raise MEInvalidArgException('Invalid argument "%s"'%params[1])
+
+        config = self.mgmtManagementAPI.get_config(self.session_id, node_name, ret_all)
+        if node_name:
+            self.writeresponse('Configuration of "%s" node:'%node_name)
+        self.writeresponse('-'*100)
+        self.writeresponse('%-30s %s'%('Parameter name',  'Parameter value'))
+        self.writeresponse('-'*100)
+        for key, value in config.items():
+            if key.startswith('__'): #internal system config parameter
+                continue
+            self.writeresponse('%-30s %s'%(key,  value))
+

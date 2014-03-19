@@ -48,11 +48,11 @@ class TestManagementEngineAPI(unittest.TestCase):
         with self.assertRaises(MEAlreadyExistsException):
             ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', False, '')
 
-        dbm.set_cluster_config({DBK_CONFIG_SECURED_INST: '0'})
+        dbm.set_config(None, {DBK_CONFIG_SECURED_INST: '0'})
         mgmt_api = ManagementEngineAPI(dbm)
 
         with self.assertRaises(MEAuthException):
-            mgmt_api.get_cluster_config(None)
+            mgmt_api.get_config(None, None)
 
         with self.assertRaises(MEAuthException):
             mgmt_api.authenticate('test', 'test')
@@ -77,7 +77,7 @@ class TestManagementEngineAPI(unittest.TestCase):
 
         mgmt_api.logout(session_id)
         with self.assertRaises(MEAuthException):
-            mgmt_api.get_cluster_config(session_id)
+            mgmt_api.get_config(session_id, None)
 
         with self.assertRaises(MEAuthException):
             mgmt_api.authenticate('admin', 'admin')
@@ -119,11 +119,11 @@ class TestManagementEngineAPI(unittest.TestCase):
             mgmt_api.authenticate('rouser', 'qwerty')
         mgmt_api.logout(session_id)
 
-        config = mgmt_api.get_cluster_config(ma_session_id)
+        config = mgmt_api.get_config(ma_session_id, None)
         self.assertNotEqual(config, {})
         config = {DBK_CONFIG_CLNAME: 'testcluster'}
-        mgmt_api.configure_cluster(ma_session_id, config)
-        c_config = mgmt_api.get_cluster_config(ma_session_id)
+        mgmt_api.set_config(ma_session_id, None, config)
+        c_config = mgmt_api.get_config(ma_session_id, None)
         self.assertTrue(c_config.has_key(DBK_CONFIG_CLNAME))
         self.assertEqual(c_config[DBK_CONFIG_CLNAME], 'testcluster')
 

@@ -44,6 +44,10 @@ DBK_MEMORY = 'memory'
 DBK_CPUMODEL = 'cpu_model'
 DBK_CORESCNT = 'cores_count'
 
+DBK_CONFIG_PARAM = 'config_param'
+DBK_CONFIG_VALUE = 'config_value'
+DBK_NODE_NAME = 'node_name'
+
 #user roles
 ROLE_RO = 'readonly'
 ROLE_UM = 'usersmanage'

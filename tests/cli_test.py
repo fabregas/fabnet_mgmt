@@ -408,7 +408,7 @@ class TestMgmtCLI(unittest.TestCase):
             cli.sendline('test123')
             cli.expect(PROMT)
 
-            cli.sendline('create-user nodes-admin readonly nodesmanage')
+            cli.sendline('create-user nodes-admin readonly nodesmanage configure')
             cli.expect('password:')
             cli.sendline('test')
             cli.expect('password:')
@@ -532,7 +532,41 @@ class TestMgmtCLI(unittest.TestCase):
             cli.close(force=True)
             TestMgmtCLI.CLI = None
 
-    def test08_nodesmgmt_remove_nodes(self):
+    def test08_nodesmgmt_conf(self):
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('nodes-admin')
+            cli.expect('Password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+
+            TestMgmtCLI.CLI = cli
+
+            self._cmd('set-config', 'Usage: SET-CONFIG')
+            self._cmd('help set-config', 'set-conf')
+            self._cmd('set-config GL_TEST_PARAM \'Test string value\'', 'updated in database')
+            self._cmd('set-config ND_TEST_PARAM 34523523.34 fake_node', 'Error! [50] Node "fake_node" does not found!')
+            self._cmd('set-config ND_TEST_PARAM 34523523.34 test_node01', 'updated in database')
+            self._cmd('set-config GL_TEST_PARAM \'specific value for node\' test_node01', 'updated in database')
+
+            self._cmd('help show-config', 'sh-conf')
+            self._cmd('sh-conf', ['Test string value', 'GL_TEST_PARAM', 'cluster_name'], ['ND_TEST_PARAM', '__ssh_key']) 
+            self._cmd('show-config fakenode', 'Error! [50] Node "fakenode" does not found!') 
+            self._cmd('sh-conf test_node01', ['specific value for node', 'GL_TEST_PARAM', 'ND_TEST_PARAM', '34523523.34'],\
+                                                ['Test string value', 'cluster_name']) 
+            self._cmd('sh-conf test_node01 full', 'Invalid argument')
+            self._cmd('sh-conf test_node01 --full', ['specific value for node', 'GL_TEST_PARAM', 'ND_TEST_PARAM', '34523523.34',\
+                                                'cluster_name']) 
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+            TestMgmtCLI.CLI = None
+
+
+    def test09_nodesmgmt_remove_nodes(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
         cli.logfile_read = sys.stdout
         try:
