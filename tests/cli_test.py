@@ -408,7 +408,7 @@ class TestMgmtCLI(unittest.TestCase):
             cli.sendline('test123')
             cli.expect(PROMT)
 
-            cli.sendline('create-user nodes-admin readonly nodesmanage configure')
+            cli.sendline('create-user nodes-admin readonly nodesmanage configure startstop')
             cli.expect('password:')
             cli.sendline('test')
             cli.expect('password:')
@@ -532,7 +532,7 @@ class TestMgmtCLI(unittest.TestCase):
             cli.close(force=True)
             TestMgmtCLI.CLI = None
 
-    def test08_nodesmgmt_conf(self):
+    def test08_nodesmgmt_conf_startstop(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
         cli.logfile_read = sys.stdout
         try:
@@ -559,6 +559,18 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('sh-conf test_node01 full', 'Invalid argument')
             self._cmd('sh-conf test_node01 --full', ['specific value for node', 'GL_TEST_PARAM', 'ND_TEST_PARAM', '34523523.34',\
                                                 'cluster_name']) 
+
+
+
+            self._cmd('start-node', 'Usage: START-NODE')
+            self._cmd('help start-node', 'startnode')
+            self._cmd('start-node unkn-node', 'Error! [50] Node "unkn-node" does not found!')
+            self._cmd('start-node test_node01', 'started')
+            
+            self._cmd('stop-node', 'Usage: STOP-NODE')
+            self._cmd('help stop-node', 'stopnode')
+            self._cmd('stop-node unkn-node', 'Error! [50] Node "unkn-node" does not found!')
+            self._cmd('stop-node test_node01', 'stopped')
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)

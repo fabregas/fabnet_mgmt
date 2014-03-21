@@ -186,8 +186,8 @@ class NodesMgmtCLIHandler:
         Set configuration of specific node or globally in database
         This command sets configuration of fabnet node (if specified)
         or global configuration
-        For applying configuration to nodes, use apply-config command
-        after set new configuration values
+        For runtime applying configuration to started nodes,
+        use apply-config command after set new configuration values
         '''
         node_name = None
         if len(params) > 2:
@@ -217,8 +217,6 @@ class NodesMgmtCLIHandler:
                     raise MEInvalidArgException('Invalid argument "%s"'%params[1])
 
         config = self.mgmtManagementAPI.get_config(self.session_id, node_name, ret_all)
-        if node_name:
-            self.writeresponse('Configuration of "%s" node:'%node_name)
         self.writeresponse('-'*100)
         self.writeresponse('%-30s %s'%('Parameter name',  'Parameter value'))
         self.writeresponse('-'*100)
@@ -226,4 +224,24 @@ class NodesMgmtCLIHandler:
             if key.startswith('__'): #internal system config parameter
                 continue
             self.writeresponse('%-30s %s'%(key,  value))
+
+    @cli_command(30, 'start-node', 'start_nodes', 'startnode', validator=(str,))
+    def command_start_node(self, params):
+        '''<node name>
+        Start node
+        This command starts installed fabnet node
+        '''
+        node_name = params[0]
+        self.mgmtManagementAPI.start_nodes(self.session_id, [node_name])
+        self.writeresponse('Node is started')
+
+    @cli_command(31, 'stop-node', 'stop_nodes', 'stopnode', validator=(str,))
+    def command_stop_node(self, params):
+        '''<node name>
+        Stop node
+        This command stops installed fabnet node
+        '''
+        node_name = params[0]
+        self.mgmtManagementAPI.stop_nodes(self.session_id, [node_name])
+        self.writeresponse('Node is stopped')
 

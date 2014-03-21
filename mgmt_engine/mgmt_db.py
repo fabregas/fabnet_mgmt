@@ -147,6 +147,9 @@ class MgmtDatabaseManager:
                                         DBK_HOMEDIR: home_dir_name, \
                                         DBK_INSTALLDATE: datetime.now()})
 
+    def update_fabnet_node(self, node_obj):
+        self.__mgmt_db[DBK_NODES].update({DBK_ID: node_obj[DBK_ID]}, node_obj)
+
     def get_fabnet_node(self, node_name):
         return self.__mgmt_db[DBK_NODES].find_one({DBK_ID: node_name})
 

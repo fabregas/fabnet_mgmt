@@ -31,6 +31,7 @@ DBK_START_DT = 'start_dt'
 DBK_ROLES = 'roles'
 DBK_USER_PWD_HASH = 'password_hash'
 DBK_LAST_SESSION = 'last_session'
+DBK_STATUS = 'status'
 
 DBK_SSHPORT = 'ssh_port'
 DBK_USERNAME = 'user_name'
@@ -47,6 +48,10 @@ DBK_CORESCNT = 'cores_count'
 DBK_CONFIG_PARAM = 'config_param'
 DBK_CONFIG_VALUE = 'config_value'
 DBK_NODE_NAME = 'node_name'
+
+#node statuses
+STATUS_UP = 1
+STATUS_DOWN = 0
 
 #user roles
 ROLE_RO = 'readonly'

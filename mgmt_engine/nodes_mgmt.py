@@ -5,7 +5,8 @@ import tempfile
 
 from mgmt_engine.decorators import MgmtApiMethod
 from mgmt_engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
-        USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT 
+        USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, \
+        DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, STATUS_UP, STATUS_DOWN
 from mgmt_engine.exceptions import MEAlreadyExistsException, \
         MEOperException, MENotFoundException 
 
@@ -196,6 +197,9 @@ def set_config(engine, session_id, node_name, config):
     config - dict where key=config parameter, value=parameter value
     If node_name is None - global config should be updated
     '''
+    if node_name:
+        node_name = node_name.lower()
+
     if type(config) != dict:
         raise MEInvalidArgException('Config should be a dict')
 
@@ -205,9 +209,10 @@ def set_config(engine, session_id, node_name, config):
 @MgmtApiMethod(ROLE_CF)
 def apply_config(engine, session_id, node_name):
     if node_name:
+        node_name = node_name.lower()
         node_objs = engine.db_mgr().get_fabnet_nodes({DBK_ID: node_name})
-        if not node_objs:
-            raise
+        if not node_objs.count():
+            raise MENotFoundException('Node "%s" does not found!'%node_name) 
 
     node_objs = engine.db_mgr().get_fabnet_nodes({})
 
@@ -216,17 +221,74 @@ def apply_config(engine, session_id, node_name):
         __set_config_to_node(node[DBK_NODEADDR], config)
     
 
+def __start_node(engine, node, config, neighbour):
+    #prepare config
+    config_str = ''
+    config['node_type'] = node[DBK_NODETYPE]
+    for key, value in config.items():
+        config_str += "%s = '%s'\n"%(key, value)
+
+    ssh_cli = engine.get_ssh_client()
+    ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
+    cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
+
+    cmd = 'echo "%s" > %s/fabnet.conf'%(config_str, node[DBK_HOMEDIR])
+    cli_inst.safe_exec(cmd)
+
+    cmd = '/opt/blik/fabnet/bin/node-daemon start %s'%neighbour
+    cli_inst.safe_exec(cmd)
+    cli_inst.close()
+
+def __stop_node(engine, node):
+    ssh_cli = engine.get_ssh_client()
+    ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
+    cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
+
+    cmd = '/opt/blik/fabnet/bin/node-daemon stop'
+    cli_inst.safe_exec(cmd)
+    cli_inst.close()
+    
+def __get_nodes_objs(engine, nodes_list):
+    nodes_objs = []
+    for node_name in nodes_list:
+        node_name = node_name.lower()
+        items = engine.db_mgr().get_fabnet_nodes({DBK_ID: node_name})
+        if not items.count():
+            raise MENotFoundException('Node "%s" does not found!'%node_name) 
+        nodes_objs.append(items[0])
+    return nodes_objs
 
 @MgmtApiMethod(ROLE_SS)
-def start_nodes(self, session_id, nodes_list=[]):
-    pass
+def start_nodes(engine, session_id, nodes_list=[]):
+    nodes_objs = __get_nodes_objs(engine, nodes_list)
+
+    for node_obj in nodes_objs:
+        config = engine.db_mgr().get_config(node_obj[DBK_ID], ret_all=True)
+        up_nodes = engine.db_mgr().get_fabnet_nodes({DBK_STATUS: STATUS_UP})
+        up_nodes.limit(1)
+        if up_nodes.count():
+            neighbour = up_nodes[0]
+        else:
+            neighbour = 'init-fabnet'
+
+        __start_node(engine, node_obj, config, neighbour)
+
+        node_obj[DBK_STATUS] = STATUS_UP
+        engine.db_mgr().update_fabnet_node(node_obj)
+
+
+@MgmtApiMethod(ROLE_SS)
+def stop_nodes(engine, session_id, nodes_list=[]):
+    nodes_objs = __get_nodes_objs(engine, nodes_list)
+
+    for node_obj in nodes_objs:
+        __stop_node(engine, node_obj)
+
+        node_obj[DBK_STATUS] = STATUS_DOWN
+        engine.db_mgr().update_fabnet_node(node_obj)
 
 @MgmtApiMethod(ROLE_SS)
 def reload_nodes(self, session_id, nodes_list=[]):
-    pass
-
-@MgmtApiMethod(ROLE_SS)
-def stop_nodes(self, session_id, nodes_list=[]):
     pass
 
 @MgmtApiMethod(ROLE_SS)
