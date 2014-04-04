@@ -1,0 +1,3 @@
+[submodule "fabnet_core"]
+	path = fabnet_core
+	url = git@github.com:fabregas/fabnet_core.git
