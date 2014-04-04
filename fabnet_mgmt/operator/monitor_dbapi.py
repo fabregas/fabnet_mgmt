@@ -9,6 +9,8 @@ Copyright (C) 2013 Konstantin Andrusenko
 @author Konstantin Andrusenko
 @date July 14, 2013
 """
+import json
+
 from fabnet.utils.logger import oper_logger as logger
 from fabnet.utils.db_conn import PostgresqlDBConnection as DBConnection
 from fabnet.utils.db_conn import DBOperationalException, DBEmptyResult
@@ -78,6 +80,7 @@ class PostgresDBAPI(AbstractDBAPI):
                                 (node_name, home_dir, node_type, UP, superiors, uppers, rows[0][0]))
 
     def update_node_stat(self, nodeaddr, stat):
+        stat = json.dumps(stat)
         self._conn.execute("UPDATE nodes_info SET status=%s, statistic=%s, last_check=%s \
                             WHERE node_address=%s", (UP, stat, datetime.now(), nodeaddr))
 

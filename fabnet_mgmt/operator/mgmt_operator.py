@@ -139,7 +139,7 @@ class CollectNodeStatisticsThread(threading.Thread):
                         logger.warning('Node with address %s does not response... Details: %s'%(nodeaddr, ret_packet))
                         self.operator.change_node_status(nodeaddr, DOWN)
                     else:
-                        stat = json.dumps(ret_packet.ret_parameters)
+                        stat = ret_packet.ret_parameters
                         self.operator.update_node_stat(nodeaddr, stat)
 
                 dt = total_seconds(datetime.now() - t0)
