@@ -9,9 +9,9 @@ Copyright (C) 2014 Konstantin Andrusenko
 @date February 3, 2014
 """
 
-from mgmt_cli.decorators import cli_command
-from mgmt_engine.constants import *
-from mgmt_engine.exceptions import MENotFoundException, MEInvalidArgException
+from fabnet_mgmt.cli.decorators import cli_command
+from fabnet_mgmt.engine.constants import *
+from fabnet_mgmt.engine.exceptions import MENotFoundException, MEInvalidArgException
 
 import os
 import urllib2

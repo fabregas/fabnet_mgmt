@@ -3,11 +3,11 @@ import urllib2
 import zipfile
 import tempfile
 
-from mgmt_engine.decorators import MgmtApiMethod
-from mgmt_engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
+from fabnet_mgmt.engine.decorators import MgmtApiMethod
+from fabnet_mgmt.engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
         USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, \
         DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, STATUS_UP, STATUS_DOWN
-from mgmt_engine.exceptions import MEAlreadyExistsException, \
+from fabnet_mgmt.engine.exceptions import MEAlreadyExistsException, \
         MEOperException, MENotFoundException 
 
 

@@ -17,15 +17,15 @@ import tempfile
 import uuid
 import base64
 
-from mgmt_engine.constants import *
-from mgmt_engine.exceptions import MEOperException, MEAlreadyExistsException, \
+from fabnet_mgmt.engine.constants import *
+from fabnet_mgmt.engine.exceptions import MEOperException, MEAlreadyExistsException, \
         MEInvalidConfigException, MENotConfiguredException, MEInvalidArgException, \
         MEAuthException, MEPermException 
-from mgmt_engine.key_storage import KeyStorage
+from fabnet_mgmt.engine.key_storage import KeyStorage
 
-from mgmt_engine.decorators import MgmtApiMethod
-from mgmt_engine.users_mgmt import *
-from mgmt_engine.nodes_mgmt import *
+from fabnet_mgmt.engine.decorators import MgmtApiMethod
+from fabnet_mgmt.engine.users_mgmt import *
+from fabnet_mgmt.engine.nodes_mgmt import *
 
 import paramiko
 

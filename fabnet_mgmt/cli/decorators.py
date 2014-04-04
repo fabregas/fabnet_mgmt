@@ -9,7 +9,7 @@ Copyright (C) 2014 Konstantin Andrusenko
 @date January 31, 2014
 """
 
-from mgmt_engine import exceptions
+from fabnet_mgmt.engine import exceptions
 
 class InvalidArgException(Exception):
     pass

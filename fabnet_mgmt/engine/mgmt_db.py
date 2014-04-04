@@ -15,11 +15,11 @@ import hashlib
 from datetime import datetime
 
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
+from pymongo.errors import ConnectionFailure, ConfigurationError
 
-from mgmt_engine.exceptions import MEDatabaseException, MEInvalidArgException, \
+from fabnet_mgmt.engine.exceptions import MEDatabaseException, MEInvalidArgException, \
                         MEAlreadyExistsException, MENotFoundException 
-from mgmt_engine.constants import *
+from fabnet_mgmt.engine.constants import *
 
 class MgmtDatabaseManager:
     MGMT_DB_NAME = 'fabnet_mgmt_db'
@@ -29,7 +29,12 @@ class MgmtDatabaseManager:
             self.__client = MongoClient(conn_str)
         except ConnectionFailure, err:
             raise MEDatabaseException('No database connection! Details: %s'%err)
-        self.__mgmt_db = self.__client[self.MGMT_DB_NAME]
+
+        try:
+            self.__mgmt_db = self.__client.get_default_database()
+        except ConfigurationError:
+            self.__mgmt_db = self.__client[self.MGMT_DB_NAME]
+
         self.__check_users()
 
     def __check_users(self):
@@ -209,3 +214,43 @@ class MgmtDatabaseManager:
 
     def get_releases(self):
         return self.__mgmt_db[DBK_RELEASES].find({})
+
+
+
+
+    
+    def get_nodes_list(self, status):
+        recs = self.__mgmt_db[DBK_NODES].find({DBK_STATUS: status}, [DBK_NODEADDR])
+        return [rec[DBK_NODEADDR] for rec in recs]
+
+
+    def change_node_status(self, nodeaddr, status):
+        nodeobj = self.__mgmt_db[DBK_NODES].find_one({DBK_NODEADDR: nodeaddr})
+        if nodeobj:
+            nodeobj[DBK_STATUS] = status
+            self.update_fabnet_node(nodeobj)
+
+    def update_node_info(self, nodeaddr, node_name, home_dir, node_type, superior_neighbours, upper_neighbours):
+        #superiors = ','.join(superior_neighbours)
+        #uppers = ','.join(upper_neighbours)
+        nodeobj = self.get_fabnet_node(node_name)
+        if nodeobj:
+            nodeobj[DBK_NODEADDR] = nodeaddr
+            nodeobj[DBK_SUPERIORS] = superior_neighbours
+            nodeobj[DBK_UPPERS] = upper_neighbours
+            nodeobj[DBK_STATUS] = STATUS_UP
+            self.update_fabnet_node(nodeobj)
+        else:
+            raise Exception('Node "%s" does not found in database'%node_name)
+
+    def update_node_stat(self, nodeaddr, stat):
+        self.__mgmt_db[DBK_NODES].update({DBK_NODEADDR: nodeaddr}, {'$set': \
+                {DBK_STATISTIC: stat, DBK_STATUS: STATUS_UP, DBK_LAST_CHECK: datetime.now()}})
+
+    def notification(self, notify_provider, notify_type, notify_topic, message, date):
+        self.__mgmt_db[DBK_NOTIFICATIONS].insert({DBK_NODEADDR: notify_provider,
+                                                    DBK_NOTIFY_TYPE: notify_type,
+                                                    DBK_NOTIFY_TOPIC: notify_topic,
+                                                    DBK_NOTIFY_MSG: message,
+                                                    DBK_NOTIFY_DT: date})
+

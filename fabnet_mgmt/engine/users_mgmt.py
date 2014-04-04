@@ -1,11 +1,11 @@
 
 import hashlib
 
-from mgmt_engine.constants import ROLE_UM, DBK_LAST_SESSION, \
+from fabnet_mgmt.engine.constants import ROLE_UM, DBK_LAST_SESSION, \
                 DBK_USERNAME, ROLES_DESC
-from mgmt_engine.exceptions import MEInvalidArgException, \
+from fabnet_mgmt.engine.exceptions import MEInvalidArgException, \
         MENotFoundException, MEAuthException 
-from mgmt_engine.decorators import MgmtApiMethod
+from fabnet_mgmt.engine.decorators import MgmtApiMethod
 
 @MgmtApiMethod(ROLE_UM)
 def create_user(engine, session_id, username, password, roles):

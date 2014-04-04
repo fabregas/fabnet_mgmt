@@ -1,0 +1,2 @@
+operators:
+    Monitor: fabnet_mgmt.operator.mgmt_operator.ManagementOperator

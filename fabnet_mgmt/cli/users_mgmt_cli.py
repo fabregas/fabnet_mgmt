@@ -11,8 +11,8 @@ Copyright (C) 2013 Konstantin Andrusenko
 This module contains the implementation of UsersMgmtCLIHandler class
 """
 
-from mgmt_cli.decorators import cli_command
-from mgmt_engine.constants import *
+from fabnet_mgmt.cli.decorators import cli_command
+from fabnet_mgmt.engine.constants import *
 
 class UsersMgmtCLIHandler:
     @cli_command(10, 'create-user', 'create_user', 'createuser', 'cru', validator=(str, (str, 1)))

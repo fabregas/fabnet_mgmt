@@ -41,6 +41,11 @@ DBK_NODES = 'installed_nodes'
 DBK_NODETYPE = 'node_type'
 DBK_NODEADDR = 'node_addr'
 DBK_INSTALLDATE = 'install_date'
+DBK_SUPERIORS = 'superior_nodes'
+DBK_UPPERS = 'upper_nodes'
+DBK_STATISTIC = 'statistic'
+DBK_LAST_CHECK = 'last_check'
+
 DBK_MEMORY = 'memory'
 DBK_CPUMODEL = 'cpu_model'
 DBK_CORESCNT = 'cores_count'
@@ -48,6 +53,15 @@ DBK_CORESCNT = 'cores_count'
 DBK_CONFIG_PARAM = 'config_param'
 DBK_CONFIG_VALUE = 'config_value'
 DBK_NODE_NAME = 'node_name'
+
+DBK_NOTIFICATIONS = 'notifications'
+DBK_NOTIFY_TOPIC = 'notify_topic'
+DBK_NOTIFY_MSG = 'notify_mgs'
+DBK_NOTIFY_TYPE = 'notify_type'
+DBK_NOTIFY_DT = 'notify_dt'
+
+
+
 
 #node statuses
 STATUS_UP = 1

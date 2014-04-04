@@ -9,12 +9,12 @@ import base64
 import socket
 import sys
 
-from mgmt_engine.mgmt_db import MgmtDatabaseManager
-from mgmt_engine.management_engine_api import ManagementEngineAPI, MockFileObj
-from mgmt_engine.exceptions import *
-from mgmt_engine.constants import *
-from mgmt_engine.key_storage import KeyStorage, InvalidPassword
-from mgmt_cli.base_cli import BaseMgmtCLIHandler
+from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
+from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI, MockFileObj
+from fabnet_mgmt.engine.exceptions import *
+from fabnet_mgmt.engine.constants import *
+from fabnet_mgmt.engine.key_storage import KeyStorage, InvalidPassword
+from fabnet_mgmt.cli.base_cli import BaseMgmtCLIHandler
 
 from pymongo import MongoClient
 import pexpect

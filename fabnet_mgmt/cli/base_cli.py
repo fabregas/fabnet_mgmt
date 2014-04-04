@@ -12,10 +12,10 @@ This module contains the implementation of BaseMgmtCLIHandler class
 and decorators for easy CLI commands implement
 """
 
-from mgmt_cli.decorators import *
-from mgmt_cli.telnetserver.threaded import TelnetHandler
-from mgmt_cli.users_mgmt_cli import * 
-from mgmt_cli.nodes_mgmt_cli import * 
+from fabnet_mgmt.cli.decorators import *
+from fabnet_mgmt.cli.telnetserver.threaded import TelnetHandler
+from fabnet_mgmt.cli.users_mgmt_cli import * 
+from fabnet_mgmt.cli.nodes_mgmt_cli import * 
 
 class BaseMgmtCLIHandler(TelnetHandler):
     PROMPT = 'mgmt-cli> '

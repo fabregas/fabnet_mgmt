@@ -7,11 +7,11 @@ import json
 import random
 import base64
 
-from mgmt_engine.mgmt_db import MgmtDatabaseManager
-from mgmt_engine.management_engine_api import ManagementEngineAPI
-from mgmt_engine.exceptions import *
-from mgmt_engine.constants import *
-from mgmt_engine.key_storage import KeyStorage, InvalidPassword
+from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
+from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
+from fabnet_mgmt.engine.exceptions import *
+from fabnet_mgmt.engine.constants import *
+from fabnet_mgmt.engine.key_storage import KeyStorage, InvalidPassword
 
 from pymongo import MongoClient
 
