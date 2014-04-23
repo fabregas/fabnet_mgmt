@@ -28,6 +28,7 @@ from fabnet_mgmt.engine.users_mgmt import *
 from fabnet_mgmt.engine.nodes_mgmt import *
 
 import paramiko
+from M2Crypto import RSA, BIO
 
 class MockFileObj:
     def __init__(self, data):
@@ -195,15 +196,12 @@ class ManagementEngineAPI(object):
         pwd = self._admin_ks.hexdigest()
         ssh_key = self.get_config_var(DBK_CONFIG_SSH_KEY)
         if not ssh_key:
-            key = paramiko.RSAKey.generate(1024)
-            f_hdl, f_path = tempfile.mkstemp()
-            try:
-                key.write_private_key_file(f_path, password=pwd)
-                ssh_key = open(f_path).read()
-                self.update_config({DBK_CONFIG_SSH_KEY: ssh_key})
-            finally:
-                os.close(f_hdl)
-                os.remove(f_path)
+            key = RSA.gen_key(1024, e=65537)
+            bio_mem = BIO.MemoryBuffer()
+
+            key.save_key_bio(bio_mem, callback=lambda _: pwd)
+            ssh_key = bio_mem.read_all()
+            self.update_config({DBK_CONFIG_SSH_KEY: ssh_key})
  
         pkey = paramiko.RSAKey.from_private_key(file_obj=MockFileObj(ssh_key), password=pwd)
         return pkey

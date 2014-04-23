@@ -29,6 +29,8 @@ from fabnet_mgmt.operator.topology_cognition_mon import TopologyCognitionMon
 from fabnet_mgmt.operator.notify_operation_mon import NotifyOperationMon
 from fabnet_mgmt.operator.monitor_dbapi import PostgresDBAPI, AbstractDBAPI 
 from fabnet_mgmt.engine.mgmt_db import  MgmtDatabaseManager
+from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
+from fabnet_mgmt.cli.base_cli import BaseMgmtCLIHandler
 
 OPERLIST = [NotifyOperationMon, TopologyCognitionMon]
 
@@ -47,11 +49,17 @@ class ManagementOperator(Operator):
         self.check_database()
 
         if key_storage:
-            cert = key_storage.get_node_cert()
-            ckey = key_storage.get_node_cert_key()
+            cert = key_storage.cert()
+            ckey = key_storage.cert_key()
         else:
             cert = ckey = None
         client = FriClient(bool(cert), cert, ckey)
+
+        self.__mgmt_engine_thrd = MgmgEngineThread(key_storage)
+        self.__mgmt_engine_thrd.setName('%s-MgmtEngineThread'%self.node_name)
+        self.__mgmt_engine_thrd.start()
+        if not self.__mgmt_engine_thrd.started():
+            raise Exception('Management engine does not started!')
 
         self.__collect_up_nodes_stat_thread = CollectNodeStatisticsThread(self, client, UP)
         self.__collect_up_nodes_stat_thread.setName('%s-UP-CollectNodeStatisticsThread'%self.node_name)
@@ -92,8 +100,10 @@ class ManagementOperator(Operator):
         self.__collect_dn_nodes_stat_thread.stop()
         self.__discovery_topology_thrd.stop()
 
+        self.__mgmt_engine_thrd.stop()
         self.__discovery_topology_thrd.join()
         self.__db_api.close()
+
 
     def get_nodes_list(self, status=UP):
         return self.__db_api.get_nodes_list(status)
@@ -218,6 +228,78 @@ class DiscoverTopologyThread(threading.Thread):
 
     def stop(self):
         self.stopped.set()
+
+
+
+import SocketServer
+import socket
+class TelnetServer(SocketServer.TCPServer):
+    allow_reuse_address = True
+    timeout = 2
+
+    def handle_error(self, request, client_address):
+        """Handle an error gracefully.
+        """
+        import sys
+        tp, _,_ = sys.exc_info()
+        if tp.__name__ == 'EOFException':
+            return
+        print '-'*40
+        print 'Exception',
+        print client_address
+        import traceback
+        traceback.print_exc()
+        print '-'*40
+
+class MgmgEngineThread(threading.Thread):
+    def __init__(self, key_storage=None):
+        threading.Thread.__init__(self)
+        self.cli_server = None
+        self.key_storage = key_storage
+        self.is_error = threading.Event()
+
+        self.host = Config.get('mgmt_cli_host', '0.0.0.0')
+        self.port = Config.get('mgmt_cli_port', '23')
+
+    def run(self):
+        logger.info('Thread started!')
+
+        try:
+            db_conn_str = Config.get('db_conn_str')
+            dbm = MgmtDatabaseManager(db_conn_str)
+            mgmt_api = ManagementEngineAPI(dbm, admin_ks=self.key_storage)
+
+            BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
+
+            self.cli_server = TelnetServer((self.host, int(self.port)), BaseMgmtCLIHandler)
+            self.cli_server.serve_forever()
+        except Exception, err:
+            self.is_error.set()
+            import traceback
+            logger.write = logger.info
+            traceback.print_exc(file=logger)
+            logger.error('Unexpected error: %s'%err)
+
+        logger.info('Thread stopped!')
+
+    def started(self):
+        while not self.is_error.is_set():
+            time.sleep(.1)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                sock.connect((self.host, int(self.port)))
+                return True
+            except socket.error:
+                pass
+            finally:
+                sock.close()
+        return False
+                
+
+    def stop(self):
+        if self.cli_server:
+            self.cli_server.stop()
+        self.join()
 
 
 ManagementOperator.update_operations_list(OPERLIST)
