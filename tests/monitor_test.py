@@ -37,6 +37,7 @@ ADDRESSES = []
 DEBUG = False
 
 MONITOR_DB = 'test_fabnet_monitor_db'
+CA_DB = 'test_ca_db'
 
 KS_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../fabnet_core/tests/cert/test_keystorage.p12')
 KS_PATH_2 = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'ks/test.p12')
@@ -155,9 +156,10 @@ class TestMonitorNode(unittest.TestCase):
                 raise err
 
     def test00_initnet(self):
-        client = MongoClient("mongodb://127.0.0.1/%s"%MONITOR_DB)
-        mgmt_db = client.get_default_database()
-        client.drop_database(mgmt_db)
+        for db in [CA_DB, MONITOR_DB]:
+            client = MongoClient("mongodb://127.0.0.1/%s"%db)
+            db_c = client.get_default_database()
+            client.drop_database(db_c)
 
         mgmt_db = client.get_default_database()
         CNT = 4
@@ -165,7 +167,7 @@ class TestMonitorNode(unittest.TestCase):
             mgmt_db[DBK_NODES].insert({DBK_ID: 'NODE%.02i'%(1900+i)})
 
         dbm = MgmtDatabaseManager("mongodb://127.0.0.1/%s"%MONITOR_DB)
-        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'https://127.0.0.1:8888')
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'mongodb://127.0.0.1/%s'%CA_DB)
 
         self.create_net(CNT)
 

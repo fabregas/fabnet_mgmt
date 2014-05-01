@@ -33,6 +33,21 @@ USERSMGMT_CMDS = BASIC_CMDS + ['CHANGE-USER-ROLES', 'CREATE-USER',\
 
 PROMT = 'mgmt-cli>'
 
+class MockedSFTP:
+    __files = {}
+
+    @classmethod
+    def get_files(cls):
+        p = cls.__files
+        cls.__files = {}
+        return p
+
+    def put(self, source, dest):
+        self.__files[source] = dest
+
+    def close(self):
+        pass
+
 class MockedExecutor:
     def __init__(self):
         self.log = ''
@@ -40,6 +55,9 @@ class MockedExecutor:
     def close(self):
         pass
 
+    def open_sftp(self):
+        return MockedSFTP()
+    
 class MockedSSHClient:
     COMMANDS_MAP = {'grep MemTotal /proc/meminfo': (0, 'MemTotal:        7725544 kB\n'),
                     'grep "model name" /proc/cpuinfo': (0, '''model name      : Intel(R) Core(TM) i7-3537U CPU @ 2.00GHz
@@ -49,11 +67,13 @@ class MockedSSHClient:
 
     CONNECT_LOG = []
     COMMANDS_LOG = []
+    INPUT_LOG = []
 
     @classmethod
     def clear_logs(cls):
         cls.CONNECT_LOG = []
         cls.COMMANDS_LOG = []
+        cls.INPUT_LOG = []
 
     def __init__(self, pri=None, timeout=10):
         pass
@@ -62,7 +82,9 @@ class MockedSSHClient:
         return 'AAAAB3NzaC1yc2EAAAADAQABAAABAQCdVmnvGPuCgXSnnb01wJoIg79+ObUck0Gwssda3Ff+mMuvXcwkXHZYuUB8g68STwrsM5eOIncDwGpbKmJI4bFRct8mZ6yyyFnPxm0p6KVjIAxXydp7eElBKfM3Xxaro6Lj1+IAXuRTWJx/NYGa3kHtalNUuveLvCx+WMifv42hE6u1Tgok1kkzEqXt4hQmgc/aG7g3I8zkFtzgzqdwafedfmuJ7ltGDJVf5JoEGFlw+e1hhjSFjHV+nXf6nGobcXP0blVGZUL7aOegnbATFPQ//DqnnGlBEvUCxIZkmQQtgN8qj71IqbCr+JYUnGByHTdaT2gQz8Lif8Iy9RXZqahr'
 
     def __make_executor(self, cli):
-        def executor(command, timeout=None):
+        def executor(command, timeout=None, input_str=None):
+            if input_str:
+                self.INPUT_LOG.append(input_str)
             self.COMMANDS_LOG.append(command)
             cli.log += '\n# %s\n'%command
             if command in self.COMMANDS_MAP:
@@ -76,8 +98,8 @@ class MockedSSHClient:
         return executor
 
     def __make_safe_exec(self, cli):
-        def safe_exec(cmd):
-            rcode = cli.execute(cmd)
+        def safe_exec(cmd, timeout=None, input_str=None):
+            rcode = cli.execute(cmd, timeout, input_str)
             if rcode:
                 raise MEOperException(cli.log+'\nERROR! Configuration failed!')
 
@@ -141,23 +163,32 @@ class CLIThread(threading.Thread):
     def stop(self):
         if self.server:
             self.server.shutdown()
+            self.server.server_close()
             self.join()
 
 class TestMgmtCLI(unittest.TestCase):
     thread = None
     CLI = None
 
+    IS_SECURED = False
+
     def test00_init(self):
+        MockedSSHClient.clear_logs()
         with self.assertRaises(MEDatabaseException):
             dbm = MgmtDatabaseManager('some-host-name')
 
         cl = MongoClient('localhost')
         cl.drop_database('test_fabnet_mgmt_db')
+        cl.drop_database('test_fabnet_ca')
         MgmtDatabaseManager.MGMT_DB_NAME = 'test_fabnet_mgmt_db'
 
         dbm = MgmtDatabaseManager('localhost')
-        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'https://127.0.0.1:8888')
-        mgmt_api = ManagementEngineAPI(dbm, admin_ks=KeyStorage(KS_PATH, KS_PASSWD))
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', self.IS_SECURED, 'mongodb://127.0.0.1/test_fabnet_ca')
+        if self.IS_SECURED:
+            admin_ks = KeyStorage(KS_PATH, KS_PASSWD)
+        else:
+            admin_ks = None
+        mgmt_api = ManagementEngineAPI(dbm, admin_ks)
 
         BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
 
@@ -506,7 +537,11 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('install-node test_hostname.com test_node01 dht externa_addr_test_node:2222', \
                     'installed')
             self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 1, MockedSSHClient.CONNECT_LOG)
-            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 2, MockedSSHClient.COMMANDS_LOG)
+            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 3 if self.IS_SECURED else 2, MockedSSHClient.COMMANDS_LOG)
+            if self.IS_SECURED:
+                files = MockedSFTP.get_files()
+                self.assertEqual(len(files), 1)
+                self.assertEqual(files.values()[0], '/home/fabnet/test_node01_node_home/test_node01_ks.p12', files)
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
@@ -565,11 +600,14 @@ class TestMgmtCLI(unittest.TestCase):
                                                 'cluster_name']) 
 
 
+            self.assertEqual(len(MockedSSHClient.INPUT_LOG), 0)
 
             self._cmd('start-node', 'Usage: START-NODE')
             self._cmd('help start-node', 'startnode')
             self._cmd('start-node unkn-node', 'Error! [50] Node "unkn-node" does not found!')
             self._cmd('start-node test_node01', 'started')
+
+            self.assertEqual(len(MockedSSHClient.INPUT_LOG), 1 if self.IS_SECURED else 0)
             
             self._cmd('stop-node', 'Usage: STOP-NODE')
             self._cmd('help stop-node', 'stopnode')
@@ -638,6 +676,8 @@ class TestMgmtCLI(unittest.TestCase):
             cli.close(force=True)
             TestMgmtCLI.CLI = None
 
+class SecuredTestMgmtCLI(TestMgmtCLI):
+    IS_SECURED = True
 
 if __name__ == '__main__':
     unittest.main()

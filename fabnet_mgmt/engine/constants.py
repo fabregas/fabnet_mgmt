@@ -17,6 +17,7 @@ DBK_SESSIONS = 'sessions'
 DBK_ID = '_id'
 DBK_CONFIG_CLNAME = 'cluster_name'
 DBK_CONFIG_CA_ADDR = 'ca_address'
+DBK_CONFIG_CA_DB = 'ca_db_conn'
 DBK_CONFIG_SSH_KEY = '__ssh_key'
 DBK_CONFIG_SECURED_INST = '__is_secured_installation' 
 

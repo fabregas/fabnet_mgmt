@@ -1,3 +1,4 @@
+import os
 import re
 import urllib2
 import zipfile
@@ -116,6 +117,11 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
 
     if not release_url:
         raise MENotFoundException('Node type "%s" does not configured in the system!'%node_type)
+    
+    if engine.is_secured_installation():
+        ks_path = engine.generate_node_key_storage(node_addr)
+    else:
+        ks_path = None
 
     home_dir_name = '%s_node_home' % node_name
     
@@ -126,6 +132,15 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
                 '--prefix=/opt/blik/fabnet  --record=/opt/blik/fabnet/%s_package_files.lst %s'
     cli_inst.safe_exec(cmd % (node_type.lower(), release_url))
     cli_inst.safe_exec('mkdir -p %s'%home_dir_name)
+    if ks_path:
+        #save CA certs
+        cli_inst.safe_exec('echo "%s" > /home/%s/%s/certs.ca'%(engine.get_ca_certificates(), USER_NAME, home_dir_name))
+
+        #copy ks to node
+        sftp = cli_inst.open_sftp()
+        sftp.put(ks_path, '/home/%s/%s/%s_ks.p12'%(USER_NAME, home_dir_name, node_name))
+        sftp.close()
+        os.unlink(ks_path)
     cli_inst.close()
     
     engine.db_mgr().append_fabnet_node(ph_node_host, node_name, node_type, node_addr, home_dir_name)
@@ -236,7 +251,12 @@ def __start_node(engine, node, config, neighbour):
     cli_inst.safe_exec(cmd)
 
     cmd = '/opt/blik/fabnet/bin/node-daemon start %s'%neighbour
-    cli_inst.safe_exec(cmd)
+
+    if engine.is_secured_installation():
+        password = engine.get_node_password(node[DBK_ID])
+    else:
+        password = None
+    cli_inst.safe_exec(cmd, input_str=password)
     cli_inst.close()
 
 def __stop_node(engine, node):

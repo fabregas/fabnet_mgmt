@@ -16,6 +16,9 @@ import hashlib
 import tempfile
 import uuid
 import base64
+import random
+import string
+from tempfile import NamedTemporaryFile
 
 from fabnet_mgmt.engine.constants import *
 from fabnet_mgmt.engine.exceptions import MEOperException, MEAlreadyExistsException, \
@@ -25,8 +28,16 @@ from fabnet_mgmt.engine.decorators import MgmtApiMethod
 from fabnet_mgmt.engine.users_mgmt import *
 from fabnet_mgmt.engine.nodes_mgmt import *
 
+
+from fabnet_ca.ca_signer import CAService
+from fabnet_ca.cert_req_generator import generate_keys, gen_request
+
+from fabnet.core.constants import NODE_CERTIFICATE
+from fabnet.core.key_storage import KeyStorage
+
 import paramiko
-from M2Crypto import RSA, BIO
+from M2Crypto import RSA, BIO, EVP
+
 
 class MockFileObj:
     def __init__(self, data):
@@ -61,10 +72,13 @@ class SSHClient:
         return self.__pri.get_base64()
 
     def __make_executor(self, cli):
-        def executor(command, timeout=None):
+        def executor(command, timeout=None, input_str=None):
             cli.log += '\n# %s\n' % command
             command += ' ;echo $? 1>&2'
-            _, stdout, stderr = cli.exec_command(command, timeout=timeout, get_pty=True)
+            stdin, stdout, stderr = cli.exec_command(command, timeout=timeout, get_pty=True)
+            if input_str:
+                stdin.write(input_str + '\n')
+                stdin.flush()
             out = stdout.read()
             try:
                 ret_code = out.splitlines()[-1]
@@ -81,8 +95,8 @@ class SSHClient:
         return executor
 
     def __make_safe_exec(self, cli):
-        def safe_exec(cmd):
-            rcode = cli.execute(cmd)
+        def safe_exec(cmd, timeout=None, input_str=None):
+            rcode = cli.execute(cmd, timeout, input_str)
             if rcode:
                 raise MEOperException(cli.log+'\nERROR! Configuration failed!')
             return rcode
@@ -106,7 +120,7 @@ class SSHClient:
 
 class ManagementEngineAPI(object):
     @classmethod
-    def initial_configuration(cls, db_mgr, cluster_name, is_secured_inst, ca_addr):
+    def initial_configuration(cls, db_mgr, cluster_name, is_secured_inst, ca_db_addr):
         config = db_mgr.get_config(None)
         if config.has_key(DBK_CONFIG_CLNAME):
             raise MEAlreadyExistsException('Management engine is already configured!') 
@@ -114,12 +128,12 @@ class ManagementEngineAPI(object):
         if not re.match('\w\w\w+$', cluster_name):
             raise MEInvalidConfigException('Cluster name is invalid!')
 
-        if is_secured_inst and not ca_addr:
-            raise MEInvalidConfigException('CA address expected for secure installation!')
+        if is_secured_inst and not ca_db_addr:
+            raise MEInvalidConfigException('CA database address expected for secure installation!')
 
         cfg = {DBK_CONFIG_CLNAME: cluster_name,
                 DBK_CONFIG_SECURED_INST: '1' if is_secured_inst else '0',
-                DBK_CONFIG_CA_ADDR: ca_addr}
+                DBK_CONFIG_CA_DB: ca_db_addr}
 
         db_mgr.set_config(None, cfg)
 
@@ -133,6 +147,10 @@ class ManagementEngineAPI(object):
 
         key = self.__init_ssh()
         self.__ssh_client = SSHClient(key)
+
+        self.__ca_service = None
+        if self.is_secured_installation():
+            self.__ca_service = CAService(self.get_config_var(DBK_CONFIG_CA_DB), admin_ks)
 
     def __del__(self):
         if self.__db_mgr:
@@ -186,6 +204,9 @@ class ManagementEngineAPI(object):
         if sec:
             sec = int(sec)
         return bool(sec)
+
+    def get_node_password(self, node_name):
+        return self._admin_ks.hexdigest()
 
     def __init_ssh(self):
         if not self._admin_ks:
@@ -258,5 +279,35 @@ class ManagementEngineAPI(object):
             raise AttributeError('No "%s" found!'%attr)
         return method
 
+    def generate_node_key_storage(self, nodeaddr):
+        if ':' in nodeaddr:
+            nodeaddr = nodeaddr.split(':')[0]
 
+        #make payment
+        payment_key = ''.join(random.choice(string.uppercase+string.digits) for i in xrange(15))
+        key = EVP.load_key_string(self._admin_ks.private())
+        key.reset_context()
+        key.sign_init()
+        key.sign_update(payment_key)
+        sign = key.sign_final()
+
+        self.__ca_service.process_payment(self._admin_ks.cert(), sign, payment_key, 36500, 0, 'node')
+        self.__ca_service.get_payment_info(payment_key, nodeaddr)
+        pub, pri = generate_keys(None, length=1024)
+        cert_req = gen_request(pri, nodeaddr, passphrase=None, OU=NODE_CERTIFICATE)
+        cert = self.__ca_service.generate_certificate(payment_key, cert_req)
+
+        password = self._admin_ks.hexdigest()
+        tmp_file = NamedTemporaryFile()
+        file_path = tmp_file.name
+        tmp_file.close()
+        out_ks = KeyStorage(file_path, password)
+        out_ks.create(pri)
+        out_ks.append_cert(cert)
+        return file_path
+
+    def get_ca_certificates(self):
+        certs = self.__ca_service.get_ca_certs()
+        certs.append(self._admin_ks.cert())
+        return '\n'.join(certs)
 
