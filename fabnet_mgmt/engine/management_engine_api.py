@@ -21,8 +21,6 @@ from fabnet_mgmt.engine.constants import *
 from fabnet_mgmt.engine.exceptions import MEOperException, MEAlreadyExistsException, \
         MEInvalidConfigException, MENotConfiguredException, MEInvalidArgException, \
         MEAuthException, MEPermException 
-from fabnet_mgmt.engine.key_storage import KeyStorage
-
 from fabnet_mgmt.engine.decorators import MgmtApiMethod
 from fabnet_mgmt.engine.users_mgmt import *
 from fabnet_mgmt.engine.nodes_mgmt import *
@@ -128,6 +126,7 @@ class ManagementEngineAPI(object):
     def __init__(self, db_mgr, admin_ks=None):
         MgmtApiMethod.set_mgmt_engine_api(self)
 
+        self.__config_cache = None
         self.__db_mgr = db_mgr
         self._admin_ks = admin_ks
         self.__check_configuration()
@@ -158,11 +157,13 @@ class ManagementEngineAPI(object):
         return self.__ssh_client
 
     def get_config_var(self, var, default=None):
-        config = self.__db_mgr.get_config(None)
-        return config.get(var, default)
+        if self.__config_cache is None:
+            self.__config_cache = self.__db_mgr.get_config(None)
+        return self.__config_cache.get(var, default)
 
     def update_config(self, new_config):
         self.__db_mgr.set_config(None, new_config)
+        self.__config_cache = None
 
     def get_node_config(self, node_name):
         '''Node config structure:

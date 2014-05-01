@@ -13,8 +13,12 @@ from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
 from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI, MockFileObj
 from fabnet_mgmt.engine.exceptions import *
 from fabnet_mgmt.engine.constants import *
-from fabnet_mgmt.engine.key_storage import KeyStorage, InvalidPassword
 from fabnet_mgmt.cli.base_cli import BaseMgmtCLIHandler
+
+path = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(path, '..'))
+sys.path.append(os.path.join(path, '../fabnet_core'))
+from fabnet.core.key_storage import KeyStorage, InvalidPassword
 
 from pymongo import MongoClient
 import pexpect

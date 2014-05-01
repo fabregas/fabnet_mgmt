@@ -39,6 +39,7 @@ DEBUG = False
 MONITOR_DB = 'test_fabnet_monitor_db'
 
 KS_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../fabnet_core/tests/cert/test_keystorage.p12')
+KS_PATH_2 = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'ks/test.p12')
 KS_PASSWD = 'node'
 
 
@@ -168,14 +169,6 @@ class TestMonitorNode(unittest.TestCase):
 
         self.create_net(CNT)
 
-    def test99_stopnet(self):
-        for process in PROCESSES:
-            process.send_signal(signal.SIGINT)
-        print 'SENDED SIGNALS'
-        for process in PROCESSES:
-            process.wait()
-        print 'STOPPED'
-
     def test01_monitor(self):
         client = MongoClient("mongodb://127.0.0.1/%s"%MONITOR_DB)
         mgmt_db = client.get_default_database()
@@ -221,6 +214,41 @@ class TestMonitorNode(unittest.TestCase):
         finally:
             cli.close(force=True)
 
+    def test09_stopnet(self):
+        for process in PROCESSES:
+            process.send_signal(signal.SIGINT)
+        print 'SENDED SIGNALS'
+        for process in PROCESSES:
+            process.wait()
+        print 'STOPPED'
+
+    def test10_start_with_annother_ks(self): 
+        address = '127.0.0.1:1991'
+        ADDRESSES.append(address)
+
+        home = '/tmp/node_monitor_new'
+        if os.path.exists(home):
+            shutil.rmtree(home)
+        os.mkdir(home)
+        logger.warning('{SNP} STARTING NODE %s'%address)
+
+        Config.load(os.path.join(home, 'fabnet.conf'))
+        Config.update_config({'db_engine': 'mongodb', \
+                'db_conn_str': "mongodb://127.0.0.1/%s"%MONITOR_DB,\
+                'COLLECT_NODES_STAT_TIMEOUT': 1,
+                'mgmt_cli_port': 2323})
+
+        args = ['/usr/bin/python', './fabnet_core/fabnet/bin/fabnet-node', address, 'init-fabnet', 'NODEMON', home, 'Monitor', \
+                KS_PATH_2, '--input-pwd', '--nodaemon']
+        if DEBUG:
+            args.append('--debug')
+        print ' '.join(args)
+        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\
+                env={'FABNET_PLUGINS_CONF': 'tests/plugins.yaml', 'PYTHONPATH': os.path.abspath('.')})
+        p.stdin.write(KS_PASSWD+'\n')
+        out, err = p.communicate()
+        self.assertNotEqual(p.returncode, 0)
+        self.assertTrue('SSHException:' in err, err)
 
 if __name__ == '__main__':
     unittest.main()
