@@ -29,7 +29,7 @@ from fabnet_mgmt.engine.users_mgmt import *
 from fabnet_mgmt.engine.nodes_mgmt import *
 
 
-from fabnet_ca.ca_signer import CAService
+from fabnet_ca.ca_service import CAService
 from fabnet_ca.cert_req_generator import generate_keys, gen_request
 
 from fabnet.core.constants import NODE_CERTIFICATE
@@ -283,19 +283,17 @@ class ManagementEngineAPI(object):
         if ':' in nodeaddr:
             nodeaddr = nodeaddr.split(':')[0]
 
-        #make payment
-        payment_key = ''.join(random.choice(string.uppercase+string.digits) for i in xrange(15))
+        activation_key = ''.join(random.choice(string.uppercase+string.digits) for i in xrange(15))
         key = EVP.load_key_string(self._admin_ks.private())
         key.reset_context()
         key.sign_init()
-        key.sign_update(payment_key)
+        key.sign_update(activation_key)
         sign = key.sign_final()
 
-        self.__ca_service.process_payment(self._admin_ks.cert(), sign, payment_key, 36500, 0, 'node')
-        self.__ca_service.get_payment_info(payment_key, nodeaddr)
+        self.__ca_service.add_new_certificate_info(self._admin_ks.cert(), sign, activation_key, 36500, NODE_CERTIFICATE)
         pub, pri = generate_keys(None, length=1024)
         cert_req = gen_request(pri, nodeaddr, passphrase=None, OU=NODE_CERTIFICATE)
-        cert = self.__ca_service.generate_certificate(payment_key, cert_req)
+        cert = self.__ca_service.generate_certificate(activation_key, cert_req)
 
         password = self._admin_ks.hexdigest()
         tmp_file = NamedTemporaryFile()

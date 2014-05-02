@@ -40,4 +40,4 @@ CERT_MAIL = 'ca@fabnet.com'
 
 CA_CERTS_FILE = os.path.join(os.environ.get('HOME', '/'), '.fabnet_ca_certificates')
 
-
+CRM_ROLE = 'crm.fabnet.com'

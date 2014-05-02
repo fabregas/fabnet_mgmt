@@ -26,7 +26,6 @@ from fabnet.utils.key_storage import KeyStorage
 from fabnet_ca.ca_ks_generator import create_ca_ks
 import fabnet_ca.settings as settings
 from fabnet_ca.cert_req_generator import gen_request, generate_keys
-from fabnet_ca.roles import *
 
 from M2Crypto import EVP, X509
 
@@ -75,7 +74,7 @@ class TestBaseCA(unittest.TestCase):
         self.assertTrue(os.path.exists(FILES[2]))
         clients_ks = KeyStorage(FILES[2], PWD)
 
-        create_ca_ks(FILES[3], PWD, 'crm', node_ks, 'CRM')
+        create_ca_ks(FILES[3], PWD, 'crm.fabnet.com', node_ks, 'CRM')
         self.assertTrue(os.path.exists(FILES[3]))
         crm_ks = KeyStorage(FILES[3], PWD)
  
@@ -124,97 +123,90 @@ class TestBaseCA(unittest.TestCase):
     def test_02_gen_certificate_info(self):
         global CLIENT_PKEY, NODE_PKEY
 
-        status, data, key = self._proc_payment('node', 365, 1000, '1')
+        status, data, key = self._proc_activation('node', 365, 1000, '1')
         self.assertEqual(status, 502, data)
 
-        status, data, key = self._proc_payment('node', 0, 1000)
+        status, data, key = self._proc_activation('node', 0, 1000)
         self.assertEqual(status, 502, data)
 
-        status, data, key = self._proc_payment('some_fake_type', 365, 1000)
-        self.assertEqual(status, 502, data)
-
-        status, data, key = self._proc_payment('node', 365, 1000, key, KeyStorage(FILES[2], PWD))
+        status, data, key = self._proc_activation('node', 365, 1000, key, KeyStorage(FILES[2], PWD))
         self.assertEqual(status, 506, data)
 
-        status, data, key = self._proc_payment('node', 365, 1000, key, sign='234234')
+        status, data, key = self._proc_activation('node', 365, 1000, key, sign='234234')
         self.assertEqual(status, 506, data)
 
-        status, data, key = self._proc_payment('node', 365, 1000, key, KeyStorage(FILES[3], PWD))
+        status, data, key = self._proc_activation('node', 365, 1000, key, KeyStorage(FILES[3], PWD))
         self.assertEqual(status, 200, data)
 
-        status, data, key = self._proc_payment('node', 365, 1000, key, KeyStorage(FILES[3], PWD))
+        status, data, key = self._proc_activation('node', 365, 1000, key, KeyStorage(FILES[3], PWD))
         self.assertEqual(status, 504, data)
         NODE_PKEY = key
 
-        status, data, key = self._proc_payment('client', 100, 1000)
+        status, data, key = self._proc_activation('client', 100, 1000)
         self.assertEqual(status, 200, data)
         CLIENT_PKEY = key
 
     @classmethod
-    def _proc_payment(cls, c_type, term, capacity, payment_key=None, ks=None, sign=None):
+    def _proc_activation(cls, c_type, term, capacity, act_key=None, ks=None, sign=None):
         if not ks:
             ks = KeyStorage(FILES[1], PWD)
 
-        if payment_key is None:
-            payment_key = ''.join(random.choice(string.uppercase+string.digits) for i in xrange(15))
+        if act_key is None:
+            act_key = ''.join(random.choice(string.uppercase+string.digits) for i in xrange(15))
 
         if sign is None:
             key = EVP.load_key_string(ks.private())
             key.reset_context()
             key.sign_init()
-            key.sign_update(payment_key)
+            key.sign_update(act_key)
             sign = key.sign_final()
 
-        status, data = cls._ca_call('/process_payment', {'certificate': ks.cert(), 'signed_data': sign, 'payment_key': payment_key, 'service_term': term,\
-                'service_capacity': capacity, 'service_endpoint': c_type})
+        status, data = cls._ca_call('/add_new_certificate_info', {'sign_cert': ks.cert(), 'signed_data': sign,
+                'activation_key': act_key, 'cert_term': term,\
+                'cert_add_info': capacity, 'cert_role': c_type})
 
-        return status, data, payment_key
+        return status, data, act_key
 
     def test_03_gen_certificates(self):
-        status, data = self._ca_call('/get_payment_info', {'payment': 'some_key'})
+        status, data = self._ca_call('/get_activation_info', {'activation': 'some_key'})
         self.assertEqual(status, 500, data)
 
-        status, data = self._ca_call('/get_payment_info', {'payment_key': 'some_key'})
+        status, data = self._ca_call('/get_activation_info', {'activation_key': 'some_key'})
         self.assertEqual(status, 505, data)
 
-        status, data = self._ca_call('/get_payment_info', {'payment_key': NODE_PKEY, 'cert_cn': '*'*65})
-        self.assertEqual(status, 502, data)
-
-        status, data = self._ca_call('/get_payment_info', {'payment_key': NODE_PKEY, 'cert_cn': '192.231.222.111'})
+        status, data = self._ca_call('/get_activation_info', {'activation_key': NODE_PKEY})
         self.assertEqual(status, 200, data)
-        status, r_data = self._ca_call('/get_payment_info', {'payment_key': NODE_PKEY})
+        status, r_data = self._ca_call('/get_activation_info', {'activation_key': NODE_PKEY})
         self.assertEqual(status, 200, r_data)
         self.assertEqual(data, r_data)
         try:
             p_info = json.loads(data)
         except Exception, err:
             raise Exception('Invalid CA response: "%s"'%data)
-        self.assertEqual(p_info['status'], 'WAIT_FOR_USER')
-        self.assertEqual(p_info['service_capacity'], 1000)
-        self.assertEqual(p_info['service_term'], 365)
+        self.assertEqual(p_info['status'], 'wait_for_user')
+        self.assertEqual(p_info['cert_add_info'], '1000')
+        self.assertEqual(p_info['cert_term'], 365)
         self.assertEqual(p_info['serial_id'], (1 << 8)|2)
-        self.assertEqual(p_info['cert_cn'], '192.231.222.111')
-
 
         pub, pri = generate_keys(None, length=2048)
         cert_req = gen_request(pri, 'kst', passphrase=None, organization='Kostik & Co', OU='my_custom_role')
 
         status, data = self._ca_call('/generate_certificate', \
-                {'cert_req_pem': cert_req, 'payment_key': 'some_key'}) 
+                {'cert_req_pem': cert_req, 'activation_key': 'some_key'}) 
         self.assertEqual(status, 505, data)
 
         status, data = self._ca_call('/generate_certificate', \
-                {'cert_req_pem': cert_req, 'payment_key': NODE_PKEY}) 
+                {'cert_req_pem': cert_req, 'activation_key': NODE_PKEY}) 
         self.assertEqual(status, 501, data)
 
-        cert_req = gen_request(pri, 'kst', passphrase=None, organization='Kostik & Co', OU=ROLES_MAP['node'])
+        cert_req = gen_request(pri, '*'*65, passphrase=None, organization='Kostik & Co', OU='node')
         status, data = self._ca_call('/generate_certificate', \
-                {'cert_req_pem': cert_req, 'payment_key': NODE_PKEY}) 
-        self.assertEqual(status, 502, data)
+                {'cert_req_pem': cert_req, 'activation_key': NODE_PKEY}) 
+        self.assertEqual(status, 501, data)
 
-        cert_req = gen_request(pri, '192.231.222.111', passphrase=None, organization='Kostik & Co', OU=ROLES_MAP['node'])
+        cert_req = gen_request(pri, '192.231.222.111', passphrase=None, organization='Kostik & Co', OU='node')
         status, data = self._ca_call('/generate_certificate', \
-                {'cert_req_pem': cert_req, 'payment_key': NODE_PKEY}) 
+                {'cert_req_pem': cert_req, 'activation_key': NODE_PKEY}) 
         self.assertEqual(status, 200, data)
 
         cert = X509.load_cert_string(data)
@@ -224,13 +216,13 @@ class TestBaseCA(unittest.TestCase):
 
         #gen client cert
         idx = (2 << 8)|2
-        status, data = self._ca_call('/get_payment_info', {'payment_key': CLIENT_PKEY})
+        status, data = self._ca_call('/get_activation_info', {'activation_key': CLIENT_PKEY})
         p_info = json.loads(data)
 
         pub, pri = generate_keys(None, length=1024)
-        cert_req = gen_request(pri, idx, passphrase=None, organization='Kostik & Co', OU=ROLES_MAP['client'])
+        cert_req = gen_request(pri, idx, passphrase=None, organization='Kostik & Co', OU='client')
         status, data = self._ca_call('/generate_certificate', \
-                {'cert_req_pem': cert_req, 'payment_key': CLIENT_PKEY}) 
+                {'cert_req_pem': cert_req, 'activation_key': CLIENT_PKEY}) 
         self.assertEqual(status, 200, data)
 
         cert = X509.load_cert_string(data)
@@ -238,27 +230,31 @@ class TestBaseCA(unittest.TestCase):
         self.assertEqual(cert.get_subject().CN, str(idx))
         self.assertEqual(cert.get_issuer().CN, 'FirstDataCenter')
 
-        status, data = self._ca_call('/get_payment_info', {'payment_key': CLIENT_PKEY})
+        status, data = self._ca_call('/get_activation_info', {'activation_key': CLIENT_PKEY})
         self.assertEqual(status, 200, data)
         p_info = json.loads(data)
-        self.assertEqual(p_info['status'], 'PROCESSED')
-        self.assertEqual(p_info['service_capacity'], 1000)
-        self.assertEqual(p_info['service_term'], 100)
+        self.assertEqual(p_info['status'], 'active')
+        self.assertEqual(p_info['cert_add_info'], '1000')
+        self.assertEqual(p_info['cert_term'], 100)
         self.assertEqual(p_info['serial_id'], idx)
-        self.assertEqual(p_info['cert_cn'], idx)
 
         status, data = self._ca_call('/generate_certificate', \
-                {'cert_req_pem': cert_req, 'payment_key': CLIENT_PKEY}) 
+                {'cert_req_pem': cert_req, 'activation_key': CLIENT_PKEY}) 
         self.assertEqual(status, 200, data)
         r_cert = X509.load_cert_string(data)
 
         self.assertEqual(r_cert.get_fingerprint(), cert.get_fingerprint())
 
-    def __test_50_load_test(self):
+        cert_req = gen_request(pri, 'some_man', passphrase=None, organization='Kostik & Co', OU='client')
+        status, data = self._ca_call('/generate_certificate', \
+                {'cert_req_pem': cert_req, 'activation_key': CLIENT_PKEY}) 
+        self.assertEqual(status, 503, data)
+
+    def test_50_load_test(self):
         print 'start load test'
         t0 = datetime.now()
         TC = 10
-        C = 1000
+        C = 100
         threads = []
         for i in xrange(TC):
             threads.append(GenCertThread(C))
@@ -273,7 +269,7 @@ class TestBaseCA(unittest.TestCase):
             self.assertEqual(thread.errs, [])
         
 
-        print 'finished! Process time: %s'%(datetime.now()-t0)
+        print '%s certificates is generated in %s threads! Process time: %s'%(TC*C, TC, datetime.now()-t0)
 
     def test_99_finally(self):
         pid_file = '/tmp/CA_127.0.0.1_1888.pid'
@@ -292,12 +288,12 @@ class GenCertThread(threading.Thread):
     def run(self):
         pub, pri = generate_keys(None, length=1024)
         for i in xrange(self.count):
-            status, data, key = TestBaseCA._proc_payment('client', 100, 1000)
-            status, data = TestBaseCA._ca_call('/get_payment_info', {'payment_key': key})
+            status, data, key = TestBaseCA._proc_activation('client.some.org', 100, 1000)
+            status, data = TestBaseCA._ca_call('/get_activation_info', {'activation_key': key})
             p_info = json.loads(data)
-            cert_req = gen_request(pri, p_info['cert_cn'], passphrase=None, organization='Kostik & Co', OU=ROLES_MAP['client'])
+            cert_req = gen_request(pri, p_info['serial_id'], passphrase=None, organization='Kostik & Co', OU='client.some.org')
             status, data = TestBaseCA._ca_call('/generate_certificate', \
-                    {'cert_req_pem': cert_req, 'payment_key': key}) 
+                    {'cert_req_pem': cert_req, 'activation_key': key}) 
             if status != 200:
                 self.errs.append(data)
 

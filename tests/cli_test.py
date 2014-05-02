@@ -542,6 +542,14 @@ class TestMgmtCLI(unittest.TestCase):
                 files = MockedSFTP.get_files()
                 self.assertEqual(len(files), 1)
                 self.assertEqual(files.values()[0], '/home/fabnet/test_node01_node_home/test_node01_ks.p12', files)
+
+                cl = MongoClient('localhost')
+                ca_db = cl['test_fabnet_ca']
+                cert = ca_db['certificates'].find_one({'cert_cn': 'externa_addr_test_node'})
+                self.assertTrue(cert is not None)
+                self.assertTrue(len(cert['cert_pem']) > 0)
+                self.assertTrue(cert['cert_serial_id'] > 0)
+                self.assertEqual(cert['status'], 'active')
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
