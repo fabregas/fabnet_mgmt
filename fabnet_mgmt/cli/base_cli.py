@@ -36,6 +36,15 @@ class BaseMgmtCLIHandler(TelnetHandler):
             self.writeresponse('ERROR! %s'%err)
             raise err
 
+        if self.mgmtManagementAPI.need_key_storage_init():
+            pwd = self.readline(prompt='Please, enter management key storage password: ', echo=False)
+            self.writeline('')
+            try:
+                self.mgmtManagementAPI.init_key_storage(pwd)
+            except Exception, err:
+                self.writeresponse('ERROR! %s'%err)
+                raise err
+
     def session_start(self):
         self.COMMANDS = {}
         self.ordered_commands = []

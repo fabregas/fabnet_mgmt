@@ -39,6 +39,10 @@ class MEBaseException(Exception):
 class MEAuthException(MEBaseException):
     def __init__(self, msg):
         MEBaseException.__init__(self, self.ERR_AUTH, msg)
+
+class MEMgmtKSAuthException(MEBaseException):
+    def __init__(self, msg):
+        MEBaseException.__init__(self, self.ERR_AUTH, msg)
         
 class MEInvalidConfigException(MEBaseException):
     def __init__(self, msg):

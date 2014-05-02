@@ -11,6 +11,7 @@ import string
 import hashlib
 import subprocess
 import signal
+import base64
 
 from pymongo import MongoClient
 
@@ -167,7 +168,7 @@ class TestMonitorNode(unittest.TestCase):
             mgmt_db[DBK_NODES].insert({DBK_ID: 'NODE%.02i'%(1900+i)})
 
         dbm = MgmtDatabaseManager("mongodb://127.0.0.1/%s"%MONITOR_DB)
-        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'mongodb://127.0.0.1/%s'%CA_DB)
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', KS_PATH_2, 'mongodb://127.0.0.1/%s'%CA_DB)
 
         self.create_net(CNT)
 
@@ -210,6 +211,8 @@ class TestMonitorNode(unittest.TestCase):
             cli.sendline('admin')
             cli.expect('Password:')
             cli.sendline('admin')
+            cli.expect('key storage password:')
+            cli.sendline(KS_PASSWD)
             cli.expect('mgmt-cli>')
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
@@ -223,34 +226,6 @@ class TestMonitorNode(unittest.TestCase):
         for process in PROCESSES:
             process.wait()
         print 'STOPPED'
-
-    def test10_start_with_annother_ks(self): 
-        address = '127.0.0.1:1991'
-        ADDRESSES.append(address)
-
-        home = '/tmp/node_monitor_new'
-        if os.path.exists(home):
-            shutil.rmtree(home)
-        os.mkdir(home)
-        logger.warning('{SNP} STARTING NODE %s'%address)
-
-        Config.load(os.path.join(home, 'fabnet.conf'))
-        Config.update_config({'db_engine': 'mongodb', \
-                'db_conn_str': "mongodb://127.0.0.1/%s"%MONITOR_DB,\
-                'COLLECT_NODES_STAT_TIMEOUT': 1,
-                'mgmt_cli_port': 2323})
-
-        args = ['/usr/bin/python', './fabnet_core/fabnet/bin/fabnet-node', address, 'init-fabnet', 'NODEMON', home, 'Monitor', \
-                KS_PATH_2, '--input-pwd', '--nodaemon']
-        if DEBUG:
-            args.append('--debug')
-        print ' '.join(args)
-        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\
-                env={'FABNET_PLUGINS_CONF': 'tests/plugins.yaml', 'PYTHONPATH': os.path.abspath('.')})
-        p.stdin.write(KS_PASSWD+'\n')
-        out, err = p.communicate()
-        self.assertNotEqual(p.returncode, 0)
-        self.assertTrue('SSHException:' in err, err)
 
 if __name__ == '__main__':
     unittest.main()

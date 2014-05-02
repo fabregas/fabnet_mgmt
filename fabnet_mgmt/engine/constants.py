@@ -20,6 +20,7 @@ DBK_CONFIG_CA_ADDR = 'ca_address'
 DBK_CONFIG_CA_DB = 'ca_db_conn'
 DBK_CONFIG_SSH_KEY = '__ssh_key'
 DBK_CONFIG_SECURED_INST = '__is_secured_installation' 
+DBK_CONFIG_MGMT_KS = '__mgmt_ks'
 
 DBK_RELEASES = 'releases'
 DBK_RELEASE_URL = 'release_url'

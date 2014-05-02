@@ -183,12 +183,10 @@ class TestMgmtCLI(unittest.TestCase):
         MgmtDatabaseManager.MGMT_DB_NAME = 'test_fabnet_mgmt_db'
 
         dbm = MgmtDatabaseManager('localhost')
-        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', self.IS_SECURED, 'mongodb://127.0.0.1/test_fabnet_ca')
-        if self.IS_SECURED:
-            admin_ks = KeyStorage(KS_PATH, KS_PASSWD)
-        else:
-            admin_ks = None
-        mgmt_api = ManagementEngineAPI(dbm, admin_ks)
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', KS_PATH if self.IS_SECURED else None,\
+                'mongodb://127.0.0.1/test_fabnet_ca')
+
+        mgmt_api = ManagementEngineAPI(dbm)
 
         BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
 
@@ -218,6 +216,29 @@ class TestMgmtCLI(unittest.TestCase):
         check('testuser', 'testpwd')
         check('admin', 'testpwd')
         check('testuser', 'admin')
+
+        def check_ks_pwd(pwd, exp_err=True):
+            cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+            cli.logfile_read = sys.stdout
+            try:
+                cli.expect('Username:')
+                cli.sendline('admin')
+                cli.expect('Password:')
+                cli.sendline('admin')
+                cli.expect('key storage password:')
+                cli.sendline(pwd)
+                if exp_err:
+                    cli.expect('ERROR!')
+                else:
+                    cli.expect(PROMT)
+                    cli.sendline('exit')
+                cli.expect(pexpect.EOF)
+            finally:
+                cli.close(force=True)
+
+        if self.IS_SECURED:
+            check_ks_pwd('invalid')
+            check_ks_pwd(KS_PASSWD, False)
 
     def test02_usersmgmt(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)

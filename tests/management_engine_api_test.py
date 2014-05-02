@@ -38,22 +38,20 @@ class TestManagementEngineAPI(unittest.TestCase):
             mgmt_api = ManagementEngineAPI(dbm)
 
         with self.assertRaises(MEInvalidConfigException):
-            ManagementEngineAPI.initial_configuration(dbm, '', True, 'localhost')
+            ManagementEngineAPI.initial_configuration(dbm, '', '', 'localhost')
         with self.assertRaises(MEInvalidConfigException):
-            ManagementEngineAPI.initial_configuration(dbm, 'test-cluster', True, 'localhost')
+            ManagementEngineAPI.initial_configuration(dbm, 'test-cluster', '', 'localhost')
         with self.assertRaises(MEInvalidConfigException):
-            ManagementEngineAPI.initial_configuration(dbm, 'sh', True, 'localhost')
+            ManagementEngineAPI.initial_configuration(dbm, 'sh', '', 'localhost')
         with self.assertRaises(MEInvalidConfigException):
-            ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, '')
+            ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', KS_PATH, '')
 
-        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', True, 'mongodb://127.0.0.1/test_fabnet_ca')
-        with self.assertRaises(MEInvalidArgException):
-            mgmt_api = ManagementEngineAPI(dbm)
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', '', '')
 
         with self.assertRaises(MEAlreadyExistsException):
-            ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', False, '')
-
-        dbm.set_config(None, {DBK_CONFIG_SECURED_INST: '0'})
+            ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', '', '')
+        
+        #dbm.set_config(None, {DBK_CONFIG_SECURED_INST: '0'})
         mgmt_api = ManagementEngineAPI(dbm)
 
         with self.assertRaises(MEAuthException):
@@ -140,16 +138,27 @@ class TestManagementEngineAPI(unittest.TestCase):
 
     def test01_operations(self):
         dbm = MgmtDatabaseManager('localhost')
-        mgmt_api = ManagementEngineAPI(dbm, admin_ks=KeyStorage(KS_PATH, KS_PASSWD))
+        mgmt_api = ManagementEngineAPI(dbm)
         key = mgmt_api.get_ssh_client().get_pubkey()
         self.assertTrue(len(key)>0)
         self.assertEqual(key, TestManagementEngineAPI.key)
         self.assertTrue(not mgmt_api.is_secured_installation())
 
-        config = {DBK_CONFIG_SECURED_INST: '1'}
-        mgmt_api.update_config(config)
+        cl = MongoClient('localhost')
+        cl.drop_database('test_fabnet_mgmt_db')
+        dbm = MgmtDatabaseManager('localhost')
+
+        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', KS_PATH, 'mongodb://127.0.0.1/test_fabnet_ca')
+
+        mgmt_api = ManagementEngineAPI(dbm)
+        s = mgmt_api.authenticate('admin', 'admin')
+        with self.assertRaises(MEMgmtKSAuthException):
+            mgmt_api.get_config(s, None)
+        mgmt_api.logout(s)
+
         
-        mgmt_api = ManagementEngineAPI(dbm, admin_ks=KeyStorage(KS_PATH, KS_PASSWD))
+        mgmt_api = ManagementEngineAPI(dbm)
+        mgmt_api.init_key_storage(KS_PASSWD)
         key = mgmt_api.get_ssh_client().get_pubkey()
         self.assertTrue(mgmt_api.is_secured_installation())
         self.assertTrue(len(key)>0)

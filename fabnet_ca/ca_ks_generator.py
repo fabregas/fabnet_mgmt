@@ -41,7 +41,7 @@ def create_ca_ks(output_file, password, role_name, root_ca_ks=None, CN=None):
         #generate pri key and certificate pair
         pub, ca_private = generate_keys(None, 2048)
         if not CN:
-            CN = 'Base %s certificate'%role_name
+            CN = 'Base certificate for %s role'%role_name
         cl_ca_req = gen_request(ca_private, CN, None, \
                 S.CERT_C, S.CERT_L, S.CERT_O, role_name, None, S.CERT_MAIL)
         ca_cert = sign_request(cl_ca_req, root_ca_private, root_ca_pem, count, 10*365, 'test', ca=True)

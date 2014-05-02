@@ -264,10 +264,11 @@ class MgmgEngineThread(threading.Thread):
     def run(self):
         logger.info('Thread started!')
 
+        dbm = None
         try:
             db_conn_str = Config.get('db_conn_str')
             dbm = MgmtDatabaseManager(db_conn_str)
-            mgmt_api = ManagementEngineAPI(dbm, admin_ks=self.key_storage)
+            mgmt_api = ManagementEngineAPI(dbm)
 
             BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
 
@@ -279,6 +280,9 @@ class MgmgEngineThread(threading.Thread):
             logger.write = logger.info
             traceback.print_exc(file=logger)
             logger.error('Unexpected error: %s'%err)
+        finally:
+            if dbm:
+                dbm.close()
 
         logger.info('Thread stopped!')
 
@@ -298,7 +302,8 @@ class MgmgEngineThread(threading.Thread):
 
     def stop(self):
         if self.cli_server:
-            self.cli_server.stop()
+            self.cli_server.shutdown()
+            self.cli_server.server_close()
         self.join()
 
 

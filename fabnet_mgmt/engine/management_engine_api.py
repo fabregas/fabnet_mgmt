@@ -23,7 +23,7 @@ from tempfile import NamedTemporaryFile
 from fabnet_mgmt.engine.constants import *
 from fabnet_mgmt.engine.exceptions import MEOperException, MEAlreadyExistsException, \
         MEInvalidConfigException, MENotConfiguredException, MEInvalidArgException, \
-        MEAuthException, MEPermException 
+        MEAuthException, MEPermException, MEMgmtKSAuthException 
 from fabnet_mgmt.engine.decorators import MgmtApiMethod
 from fabnet_mgmt.engine.users_mgmt import *
 from fabnet_mgmt.engine.nodes_mgmt import *
@@ -120,7 +120,7 @@ class SSHClient:
 
 class ManagementEngineAPI(object):
     @classmethod
-    def initial_configuration(cls, db_mgr, cluster_name, is_secured_inst, ca_db_addr):
+    def initial_configuration(cls, db_mgr, cluster_name, mgmt_ks_path, ca_db_addr):
         config = db_mgr.get_config(None)
         if config.has_key(DBK_CONFIG_CLNAME):
             raise MEAlreadyExistsException('Management engine is already configured!') 
@@ -128,29 +128,34 @@ class ManagementEngineAPI(object):
         if not re.match('\w\w\w+$', cluster_name):
             raise MEInvalidConfigException('Cluster name is invalid!')
 
+        is_secured_inst = bool(mgmt_ks_path)
         if is_secured_inst and not ca_db_addr:
             raise MEInvalidConfigException('CA database address expected for secure installation!')
 
+        if mgmt_ks_path:
+            ks = open(mgmt_ks_path, 'rb').read()
+            ks = base64.b64encode(ks)
+        else:
+            ks = ''
+
         cfg = {DBK_CONFIG_CLNAME: cluster_name,
                 DBK_CONFIG_SECURED_INST: '1' if is_secured_inst else '0',
+                DBK_CONFIG_MGMT_KS: ks,
                 DBK_CONFIG_CA_DB: ca_db_addr}
 
         db_mgr.set_config(None, cfg)
 
-    def __init__(self, db_mgr, admin_ks=None):
+    def __init__(self, db_mgr):
         MgmtApiMethod.set_mgmt_engine_api(self)
 
         self.__config_cache = None
         self.__db_mgr = db_mgr
-        self._admin_ks = admin_ks
+        self._admin_ks = None
         self.__check_configuration()
 
-        key = self.__init_ssh()
-        self.__ssh_client = SSHClient(key)
+        self.__ssh_client = SSHClient(None)
 
         self.__ca_service = None
-        if self.is_secured_installation():
-            self.__ca_service = CAService(self.get_config_var(DBK_CONFIG_CA_DB), admin_ks)
 
     def __del__(self):
         if self.__db_mgr:
@@ -164,9 +169,6 @@ class ManagementEngineAPI(object):
         cluster_name = self.get_config_var(DBK_CONFIG_SECURED_INST)
         if cluster_name is None:
             raise MENotConfiguredException('installation type does not specified!')
-
-        if self.is_secured_installation() and not self._admin_ks:
-            raise MEInvalidArgException('Key storage should be specified for secured installation!')
 
     def db_mgr(self):
         return self.__db_mgr
@@ -199,6 +201,24 @@ class ManagementEngineAPI(object):
         '''
         pass
 
+    def init_key_storage(self, ks_passwd):
+        tmp = NamedTemporaryFile()
+        ks_data = self.get_config_var(DBK_CONFIG_MGMT_KS)
+        tmp.write(base64.b64decode(ks_data))
+        tmp.flush()
+        self._admin_ks = KeyStorage(tmp.name, ks_passwd)
+        tmp.close()
+
+        self.__ca_service = CAService(self.get_config_var(DBK_CONFIG_CA_DB), self._admin_ks)
+
+        key = self.__init_ssh()
+        self.__ssh_client = SSHClient(key)
+
+    def need_key_storage_init(self):
+        if self.is_secured_installation() and not self._admin_ks:
+            return True
+        return False
+
     def is_secured_installation(self):
         sec = self.get_config_var(DBK_CONFIG_SECURED_INST)
         if sec:
@@ -230,6 +250,9 @@ class ManagementEngineAPI(object):
 
 
     def check_roles(self, session_id, need_roles):
+        if self.is_secured_installation() and not self._admin_ks:
+            raise MEMgmtKSAuthException('Management key storage does not initialized!')
+
         user = self.__db_mgr.get_user_by_session(session_id)
         if user is None:
             raise MEAuthException('Unknown user session!')
