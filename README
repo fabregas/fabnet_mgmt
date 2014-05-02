@@ -1,0 +1,8 @@
+fabnet_mgmt
+===========
+
+Management environment for Fabnet network
+This environment contain:
+    - certification authority service
+    - management CLI console
+    - monitor node for fabnet network (MGMT type)
