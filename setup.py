@@ -7,16 +7,6 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 if __name__ == '__main__':
-    try:
-        install_submodule('https://github.com/fabregas/fabnet/archive/master.zip', 'fabnet_package_files.lst')
-
-        check_deps({GENTOO: ('pymongo', 'openssl', 'paramiko'), \
-                RHEL: ('openssl', 'python-paramiko'), \
-                DEBIAN: ('openssl', 'python-crypto')})
-    except Exception, err:
-        print (err)
-        sys.exit(1)
-
     prepare_install('/opt/blik/fabnet', '/opt/blik/fabnet/mgmt_package_files.lst')
 
     setup(
@@ -32,5 +22,16 @@ if __name__ == '__main__':
         scripts=get_all('./bin'),
         long_description=read('README'),
     )
+
+    try:
+        install_submodule('https://github.com/fabregas/fabnet/archive/master.zip', 'fabnet_package_files.lst')
+
+        check_deps({GENTOO: ('pymongo', 'openssl', 'paramiko', 'cherrypy'), \
+                RHEL: ('openssl', 'python-paramiko', 'python-cherrypy'), \
+                DEBIAN: ('openssl', 'python-crypto', 'python-cherrypy')})
+    except Exception, err:
+        print (err)
+        sys.exit(1)
+
     setup_user()
     update_user_profile()
