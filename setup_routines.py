@@ -1,7 +1,6 @@
 import os
 import sys
 from subprocess import Popen, PIPE
-from setuptools import setup, find_packages
 
 USER_NAME = 'fabnet'
 
