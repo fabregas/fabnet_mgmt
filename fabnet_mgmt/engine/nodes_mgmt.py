@@ -9,7 +9,7 @@ from fabnet_mgmt.engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
         USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, \
         DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, STATUS_UP, STATUS_DOWN
 from fabnet_mgmt.engine.exceptions import MEAlreadyExistsException, \
-        MEOperException, MENotFoundException 
+        MEOperException, MENotFoundException, MEBadURLException 
 
 
 def to_mb(str_val):
@@ -177,8 +177,13 @@ def show_nodes(engine, session_id, filters={}, rows=None):
 
 @MgmtApiMethod(ROLE_NM)
 def set_release(engine, session_id, node_type, release_url):
-    response = urllib2.urlopen(release_url)
-    zip_content = response.read()
+    try:
+        response = urllib2.urlopen(release_url)
+        zip_content = response.read()
+    except Exception, err:
+        raise MEBadURLException('Bad release URL "%s" for node type "%s"!' \
+                                                    %(release_url, node_type)) 
+
     f_obj = tempfile.NamedTemporaryFile()
     try:
         f_obj.write(zip_content)

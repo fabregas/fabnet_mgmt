@@ -198,6 +198,7 @@ class MgmtDatabaseManager:
 
         for item in config:
             ret_config[item[DBK_CONFIG_PARAM]] = item[DBK_CONFIG_VALUE]
+
         return ret_config
 
 

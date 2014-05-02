@@ -1,0 +1,50 @@
+#!/usr/bin/python
+
+import os
+import tempfile
+import sys
+import getpass
+import random
+from string import digits, ascii_uppercase
+
+from fabnet_ca.ca_ks_generator import create_ca_ks
+from fabnet.utils.key_storage import KeyStorage
+
+if __name__ == '__main__':
+    if len(sys.argv) < 4:
+        print('usage: %s <role> <output key storage path> <cert name> [<root key storage path] [--genpwd]'%sys.argv[0])
+        sys.exit(1)
+
+    try:
+        if len(sys.argv) >= 5 and sys.argv[4] != '--genpwd':
+            root_ks_path = sys.argv[4]
+            if not os.path.exists(root_ks_path):
+                raise Exception('Root CA key storage does not found at %s'%root_ks_path)
+
+            pwd = getpass.getpass('Enter root CA key storage password: ')
+            root_ks = KeyStorage(root_ks_path, pwd)
+        else:
+            root_ks = None
+
+        if '--genpwd' in sys.argv:
+            char_set = digits + ascii_uppercase
+            pwd = ''
+            for _ in range(20):
+                pwd += random.choice(char_set)
+
+            print 'New CA key storage password: %s'%pwd
+        else:
+            pwd = getpass.getpass('Enter new CA key storage password: ')
+            repwd = getpass.getpass('Re-Enter new CA key storage password: ')
+            if pwd != repwd:
+                raise Exception('Password mismatch!')
+
+        create_ca_ks(sys.argv[2], pwd, sys.argv[1], root_ks, sys.argv[3])
+    except Exception, err:
+        print('ERROR! %s'%err)
+        sys.exit(1)
+    finally:
+        pass
+
+    sys.exit(0)
+

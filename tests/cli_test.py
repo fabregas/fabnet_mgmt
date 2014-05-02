@@ -492,7 +492,7 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('help set-release', ['software release'])
             self._cmd('set-release', 'Usage: SET-RELEASE <node type> <release url>')
             self._cmd('set-release test-node-type', 'Usage: SET-RELEASE <node type> <release url>')
-            self._cmd('set-release test-node-type test', 'unknown url')
+            self._cmd('set-release test-node-type test', 'Bad release URL')
             self._cmd('set-release test-node-type file://%s/tests/data/invalid_release'%os.path.abspath('.'), 'File is not a zip file')
             self._cmd('set-release test-node-type file://%s/tests/data/novers_release.zip'%os.path.abspath('.'), 'installed')
             self._cmd('set-release DHT file://%s/tests/data/valid_release.zip'%os.path.abspath('.'), 'installed')

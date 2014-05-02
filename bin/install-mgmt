@@ -1,0 +1,152 @@
+#!/usr/bin/python
+import os
+import sys
+import yaml
+import getpass
+import random
+import string
+from optparse import OptionParser
+
+from fabnet.core.key_storage import KeyStorage
+
+from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
+from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
+from fabnet_mgmt.engine.exceptions import *
+from fabnet_mgmt.engine.constants import *
+
+def get_section(obj, section, exception=True, name=None):
+    data = obj.get(section, None)
+    if data is None and exception:
+        raise Exception('Section "%s" does not found in installation file!'%(name or section))
+    return data
+
+def parse_install_file(file_path):
+    if not os.path.exists(file_path):
+        raise Exception('File does not found at %s'%file_path)
+
+    f_obj = None
+    try:
+        f_obj = open(file_path)
+        data = yaml.load(f_obj)
+    except Exception, err:
+        raise Exception('Parse %s file error: %s'%(file_path, err))
+    finally:
+        if f_obj:
+            f_obj.close()
+
+    cluster_info = get_section(data, 'cluster_info')
+    get_section(cluster_info, 'name', name='cluster_info.name')
+
+    ca_info = get_section(data, 'ca', exception=False)
+    if ca_info:
+        get_section(ca_info, 'database_conn_str')
+
+    node_types = get_section(data, 'node_types')
+    if type(node_types) != dict:
+        raise Exception('Invalid node types in installation file!')
+    for node_type, nt_data in node_types.items():
+        get_section(nt_data, 'release_url', name='node_types.%s.release_url'%node_type)
+
+    nodes_list = get_section(data, 'nodes')
+    if type(nodes_list) != list:
+        raise Exception('Invalid nodes list in installation file!')
+    for node in nodes_list:
+        for node_name, n_data in node.items():
+            get_section(n_data, 'ssh_addr', name='nodes.%s.ssh_addr'%node_name)
+            get_section(n_data, 'fabnet_addr', name='nodes.%s.fabnet_addr'%node_name)
+            get_section(n_data, 'node_type', name='nodes.%s.node_type'%node_name)
+
+    return cluster_info, ca_info, node_types, nodes_list
+    
+
+def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''):
+    cluster_info, ca_info, node_types, nodes_list = parse_install_file(install_file_path)
+
+    if ca_info:
+        ca_db_conn_str = ca_info['database_conn_str']
+    else:
+        ca_db_conn_str = None
+
+    dbm = MgmtDatabaseManager(mgmt_db_url)
+    print('==== Initial cluster configuration ====')
+    ManagementEngineAPI.initial_configuration(dbm, cluster_info['name'], \
+            mgmt_ks_path, ca_db_conn_str)
+    
+    mgmt_api = ManagementEngineAPI(dbm)
+    if mgmt_ks_path:
+        mgmt_api.init_key_storage(mgmt_ks_pwd)
+    session_id = mgmt_api.authenticate('admin', 'admin')
+
+    roles = [ROLE_UM, ROLE_NM, ROLE_CF, ROLE_SS, ROLE_UPGR, ROLE_RO]
+    tmp_pwd = ''.join(random.choice(string.uppercase+string.digits) for i in xrange(15))
+    mgmt_api.create_user(session_id, 'installer', tmp_pwd, roles)
+    mgmt_api.logout(session_id)
+
+    session_id = mgmt_api.authenticate('installer', tmp_pwd)
+
+    for node_type, nt_data in node_types.items():
+        mgmt_api.set_release(session_id, node_type, nt_data['release_url'])
+
+    print('====             Done              ====\n')
+
+    print('====       Nodes installation      ====')
+    for node in nodes_list:
+        for node_name, n_data in node.items():
+            print('Installing %s node...'%node_name)
+            print('  --> configuring physical node at %s ...'%n_data['ssh_addr'])
+            mgmt_api.install_physical_node(session_id, n_data['ssh_addr'], \
+                    n_data.get('ssh_user', 'root'), \
+                    n_data.get('ssh_password', None), \
+                    n_data.get('ssh_key', None))
+
+            print('  --> configuring fabnet node ...')
+            mgmt_api.install_fabnet_node(session_id, n_data['ssh_addr'], \
+                    node_name, n_data['node_type'], n_data['fabnet_addr'])
+            
+            if n_data.has_key('config'):
+                mgmt_api.set_config(session_id, node_name, n_data['config'])
+
+    mgmt_api.remove_user(session_id, 'installer')
+    mgmt_api.logout(session_id)
+    print('====             Done              ====')
+
+
+if __name__ == '__main__':
+    parser = OptionParser()
+    parser.add_option("-y", "--yaml", dest="yaml_path",
+                    help="path to YAML for installation")
+    parser.add_option("-k", "--ks", dest="ks_path",
+                    help="path to management key storage (expected for secured installation)")
+    parser.add_option("-d", "--mgmt-db", dest="db_str",
+                    help="management database URI")
+
+    (options, args) = parser.parse_args()
+
+    if not options.yaml_path:
+        parser.print_help()
+        sys.exit(1)
+
+    try:
+        if not os.path.exists(options.yaml_path):
+            raise Exception('YAML file does not found at %s'%options.yaml_path)
+
+        if options.ks_path:
+            if not os.path.exists(options.ks_path):
+                raise Exception('Management key storage does not found at %s'%options.ks_path)
+            ks_pwd = getpass.getpass('Management key storage password: ')
+            KeyStorage(options.ks_path, ks_pwd)
+        else:
+            ks_pwd = None
+        
+        mgmt_db_url = options.db_str or 'localhost'
+
+        install_cluster(mgmt_db_url, options.yaml_path, options.ks_path, ks_pwd)
+    #except Exception, err:
+    #    sys.stderr.write('ERROR! %s\n'%err)
+    #    sys.exit(1)
+    finally:
+        pass
+
+    sys.exit(0)
+
+

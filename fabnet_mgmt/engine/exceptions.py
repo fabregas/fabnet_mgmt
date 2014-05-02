@@ -13,6 +13,7 @@ class MEBaseException(Exception):
     ERR_UNKN = 1
     ERR_AUTH = 10
     ERR_PERM = 11
+    ERR_KSAUTH = 12
     ERR_OPER = 20
     ERR_UNEX = 30
     ERR_DBER = 40
@@ -21,6 +22,7 @@ class MEBaseException(Exception):
     ERR_INAR = 60
     ERR_INCF = 70
     ERR_NTCF = 80
+    ERR_BURL = 90
 
     def __init__(self, ret_code, msg):
         super(MEBaseException, self).__init__()
@@ -42,7 +44,7 @@ class MEAuthException(MEBaseException):
 
 class MEMgmtKSAuthException(MEBaseException):
     def __init__(self, msg):
-        MEBaseException.__init__(self, self.ERR_AUTH, msg)
+        MEBaseException.__init__(self, self.ERR_KSAUTH, msg)
         
 class MEInvalidConfigException(MEBaseException):
     def __init__(self, msg):
@@ -81,3 +83,6 @@ class MENotConfiguredException(MEBaseException):
         MEBaseException.__init__(self, self.ERR_NTCF, \
                 ': '.join(('Management engine does not configured', msg)))
 
+class MEBadURLException(MEBaseException):
+    def __init__(self, msg):
+        MEBaseException.__init__(self, self.ERR_BURL, msg)
