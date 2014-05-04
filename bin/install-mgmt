@@ -85,7 +85,8 @@ def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''
     session_id = mgmt_api.authenticate('installer', tmp_pwd)
 
     for node_type, nt_data in node_types.items():
-        mgmt_api.set_release(session_id, node_type, nt_data['release_url'])
+        release_url = nt_data['release_url']
+        mgmt_api.set_release(session_id, node_type, release_url)
 
     print('====             Done              ====\n')
 

@@ -51,14 +51,13 @@ def install_physical_node(engine, session_id, ssh_address, ssh_user, ssh_pwd, ss
     cli_inst.safe_exec('sudo chown %s:%s -R /home/%s/.ssh/'%(USER_NAME, USER_NAME, USER_NAME))
     cli_inst.safe_exec('sudo mkdir -p /opt/blik/fabnet/packages')
     cli_inst.safe_exec('sudo chown %s:%s -R /opt/blik/fabnet'%(USER_NAME, USER_NAME))
-    cli_inst.safe_exec('sudo yum install -y python-setuptools || sudo apt-get install -y python-setuptools')
     cli_inst.close()
 
     #check connection with system ssh key
     ssh_cli = engine.get_ssh_client()
     cli_inst = ssh_cli.connect(ssh_address, port, USER_NAME)
     cli_inst.safe_exec('grep MemTotal /proc/meminfo')
-    parts = cli_inst.output.split(':')
+    parts = cli_inst.output.split('\n')[0].split(':')
     if len(parts) != 2:
         raise Exception('/proc/meminfo error!')
     mem = parts[1].strip()

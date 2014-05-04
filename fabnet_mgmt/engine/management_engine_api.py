@@ -110,6 +110,7 @@ class SSHClient:
             pkey = paramiko.RSAKey.from_private_key(file_obj=MockFileObj(pkey))
         if not pkey:
             pkey = self.__pri
+
         cli.connect(hostname, port, username, password, pkey, timeout=self.__timeout)
         cli.log = ''
         cli.output = ''
