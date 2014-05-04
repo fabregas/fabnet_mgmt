@@ -1,26 +1,14 @@
 import os
 import sys
-from setup_routines import *
+from setuptools import setup
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 if __name__ == '__main__':
-    try:
-        install_submodule('https://github.com/fabregas/fabnet/archive/master.zip', 'fabnet_package_files.lst')
-
-        check_deps({GENTOO: ('pymongo', 'openssl', 'paramiko', 'cherrypy'), \
-                RHEL: ('openssl', 'python-paramiko', 'python-cherrypy'), \
-                DEBIAN: ('openssl', 'python-crypto', 'python-cherrypy')})
-    except Exception, err:
-        print (err)
-        sys.exit(1)
-
-    prepare_install('/opt/blik/fabnet', '/opt/blik/fabnet/mgmt_package_files.lst')
-    from setuptools import setup
     setup(
         name = "fabnet-mgmt",
-        version = get_cur_ver(),
+        version = read('VERSION'),
         author = "Fabregas",
         author_email = "kksstt@gmail.com",
         description = ("Management core for fabnet network."),
@@ -31,6 +19,3 @@ if __name__ == '__main__':
         scripts=get_all('./bin'),
         long_description=read('README'),
     )
-
-    setup_user()
-    update_user_profile()

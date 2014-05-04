@@ -11,6 +11,7 @@ from fabnet_mgmt.engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
 from fabnet_mgmt.engine.exceptions import MEAlreadyExistsException, \
         MEOperException, MENotFoundException, MEBadURLException 
 
+FABNET_INSTALLER_PATH = '/opt/blik/fabnet/bin/pkg-install'
 
 def to_mb(str_val):
     parts = str_val.split()
@@ -127,21 +128,22 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
     
     ssh_cli = engine.get_ssh_client()
     cli_inst = ssh_cli.connect(ph_node_host, node[DBK_SSHPORT], USER_NAME)
+    sftp = cli_inst.open_sftp()
+    try:
+        sftp.put(FABNET_INSTALLER_PATH, '/home/%s/installer.py'%USER_NAME)
 
-    cmd = 'PYTHONPATH="/opt/blik/fabnet/packages" easy_install --install-dir=/opt/blik/fabnet/packages '\
-                '--prefix=/opt/blik/fabnet  --record=/opt/blik/fabnet/%s_package_files.lst %s'
-    cli_inst.safe_exec(cmd % (node_type.lower(), release_url))
-    cli_inst.safe_exec('mkdir -p %s'%home_dir_name)
-    if ks_path:
-        #save CA certs
-        cli_inst.safe_exec('echo "%s" > /home/%s/%s/certs.ca'%(engine.get_ca_certificates(), USER_NAME, home_dir_name))
+        cli_inst.safe_exec('python /home/%s/installer.py %s'%(USER_NAME, release_url))
+        cli_inst.safe_exec('mkdir -p %s'%home_dir_name)
+        if ks_path:
+            #save CA certs
+            cli_inst.safe_exec('echo "%s" > /home/%s/%s/certs.ca'%(engine.get_ca_certificates(), USER_NAME, home_dir_name))
 
-        #copy ks to node
-        sftp = cli_inst.open_sftp()
-        sftp.put(ks_path, '/home/%s/%s/%s_ks.p12'%(USER_NAME, home_dir_name, node_name))
+            #copy ks to node
+            sftp.put(ks_path, '/home/%s/%s/%s_ks.p12'%(USER_NAME, home_dir_name, node_name))
+            os.unlink(ks_path)
+    finally:
         sftp.close()
-        os.unlink(ks_path)
-    cli_inst.close()
+        cli_inst.close()
     
     engine.db_mgr().append_fabnet_node(ph_node_host, node_name, node_type, node_addr, home_dir_name)
 

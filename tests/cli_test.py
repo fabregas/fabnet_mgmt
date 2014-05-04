@@ -559,10 +559,10 @@ class TestMgmtCLI(unittest.TestCase):
                     'installed')
             self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 1, MockedSSHClient.CONNECT_LOG)
             self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 3 if self.IS_SECURED else 2, MockedSSHClient.COMMANDS_LOG)
+
+            files = MockedSFTP.get_files()
             if self.IS_SECURED:
-                files = MockedSFTP.get_files()
-                self.assertEqual(len(files), 1)
-                self.assertEqual(files.values()[0], '/home/fabnet/test_node01_node_home/test_node01_ks.p12', files)
+                self.assertEqual(len(files), 2)
 
                 cl = MongoClient('localhost')
                 ca_db = cl['test_fabnet_ca']
@@ -571,6 +571,8 @@ class TestMgmtCLI(unittest.TestCase):
                 self.assertTrue(len(cert['cert_pem']) > 0)
                 self.assertTrue(cert['cert_serial_id'] > 0)
                 self.assertEqual(cert['status'], 'active')
+            else:
+                self.assertEqual(len(files), 1)
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
