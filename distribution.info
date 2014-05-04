@@ -9,5 +9,5 @@ dependencies = {'gentoo': ('pymongo', 'openssl', 'paramiko', 'cherrypy'),
                 'rhel': ('openssl', 'python-paramiko', 'python-cherrypy'),
                 'deb': ('openssl', 'python-crypto', 'python-cherrypy')}
 
-submodule = 'https://github.com/fabregas/fabnet/archive/master.zip'
+submodule = 'https://github.com/fabregas/fabnet_core/archive/master.zip'
 
