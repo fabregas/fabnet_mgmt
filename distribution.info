@@ -5,9 +5,9 @@ packages = ['fabnet_mgmt', 'fabnet_ca']
 
 bin_paths = ['./bin']
 
-dependencies = {GENTOO: ('pymongo', 'openssl', 'paramiko', 'cherrypy'),
-                RHEL: ('openssl', 'python-paramiko', 'python-cherrypy'),
-                DEBIAN: ('openssl', 'python-crypto', 'python-cherrypy')}
+dependencies = {'gentoo': ('pymongo', 'openssl', 'paramiko', 'cherrypy'),
+                'rhel': ('openssl', 'python-paramiko', 'python-cherrypy'),
+                'deb': ('openssl', 'python-crypto', 'python-cherrypy')}
 
 submodule = 'https://github.com/fabregas/fabnet/archive/master.zip'
 
