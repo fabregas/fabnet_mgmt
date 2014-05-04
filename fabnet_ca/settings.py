@@ -30,7 +30,7 @@ PKI_OPENSSL_TEMPLATE = 'pki/openssl.conf.in'
 # self_signed_serial; The serial a self signed CA starts with. Set to 0 or 0x0 for a random number
 PKI_SELF_SIGNED_SERIAL = 0x0
 
-DB_NAME = os.environ.get('FABNET_CA_DB', None) or 'FabnetCA'
+DB_NAME = os.environ.get('FABNET_CA_DB', None) or 'fabnet_ca_db'
 
 CERT_C = 'UA'
 CERT_ST = 'Kyiv'

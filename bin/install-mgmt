@@ -68,6 +68,9 @@ def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''
         ca_db_conn_str = None
 
     dbm = MgmtDatabaseManager(mgmt_db_url)
+    if ca_db_conn_str and not mgmt_ks_path:
+        raise Exception('Management key storage is expected for secured installation!')
+
     print('==== Initial cluster configuration ====')
     ManagementEngineAPI.initial_configuration(dbm, cluster_info['name'], \
             mgmt_ks_path, ca_db_conn_str)
@@ -142,9 +145,9 @@ if __name__ == '__main__':
         mgmt_db_url = options.db_str or 'localhost'
 
         install_cluster(mgmt_db_url, options.yaml_path, options.ks_path, ks_pwd)
-    #except Exception, err:
-    #    sys.stderr.write('ERROR! %s\n'%err)
-    #    sys.exit(1)
+    except Exception, err:
+        sys.stderr.write('ERROR! %s\n'%err)
+        sys.exit(1)
     finally:
         pass
 
