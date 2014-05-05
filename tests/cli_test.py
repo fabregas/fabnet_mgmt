@@ -532,7 +532,7 @@ class TestMgmtCLI(unittest.TestCase):
             self.assertEqual(MockedSSHClient.CONNECT_LOG[1], ('test_hostname.com', 322, 'fabnet', None, None))
             self.assertEqual(MockedSSHClient.CONNECT_LOG[0][:4], ('test_hostname.com', 322, 'test_user', None))
             self.assertTrue(MockedSSHClient.CONNECT_LOG[0][4] is not None)
-            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 12)#, MockedSSHClient.COMMANDS_LOG)
+            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 11)#, MockedSSHClient.COMMANDS_LOG)
             MockedSSHClient.clear_logs()
             
             node = dbm.get_physical_node('test_hostname.com')

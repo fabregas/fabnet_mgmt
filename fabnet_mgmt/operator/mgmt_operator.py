@@ -242,10 +242,12 @@ class TelnetServer(SocketServer.TCPServer):
         """
         import sys
         tp, _,_ = sys.exc_info()
+        if tp == socket.error:
+            return
         if tp.__name__ == 'EOFException':
             return
         print '-'*40
-        print 'Exception',
+        print 'Exception (%s)'%tp,
         print client_address
         import traceback
         traceback.print_exc()

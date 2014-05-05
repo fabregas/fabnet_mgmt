@@ -78,12 +78,13 @@ class TestMonitorNode(unittest.TestCase):
                         'mgmt_cli_port': 2323})
             else:
                 ntype = 'Base'
-            args = ['/usr/bin/python', './fabnet_core/fabnet/bin/fabnet-node', address, n_node, 'NODE%.02i'%i, home, ntype, \
+            args = ['/usr/bin/python', './fabnet_core/bin/fabnet-node', address, n_node, 'NODE%.02i'%i, home, ntype, \
                     KS_PATH, '--input-pwd', '--nodaemon']
             if DEBUG:
                 args.append('--debug')
             print ' '.join(args)
-            p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\
+            #p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,\
+            p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stdout,\
                     env={'FABNET_PLUGINS_CONF': 'tests/plugins.yaml', 'PYTHONPATH': os.path.abspath('.')})
             p.stdin.write(KS_PASSWD+'\n')
             logger.warning('{SNP} PROCESS STARTED')
@@ -179,7 +180,7 @@ class TestMonitorNode(unittest.TestCase):
         events = mgmt_db[DBK_NOTIFICATIONS].find({DBK_NOTIFY_TOPIC: 'NodeUp'})
         self.assertEqual(events.count(), 3)
 
-        #p = subprocess.Popen(['/usr/bin/python', './fabnet_core/fabnet/bin/fri-caller', 'TopologyCognition', ADDRESSES[0], '{}', 'async'])
+        #p = subprocess.Popen(['/usr/bin/python', './fabnet_core/bin/fri-caller', 'TopologyCognition', ADDRESSES[0], '{}', 'async'])
         key_storage = init_keystore(KS_PATH, KS_PASSWD)
         cert = key_storage.cert()
         ckey = key_storage.cert_key()
