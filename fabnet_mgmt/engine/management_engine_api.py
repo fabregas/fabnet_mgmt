@@ -80,17 +80,23 @@ class SSHClient:
                 stdin.write(input_str + '\n')
                 stdin.flush()
             out = stdout.read()
+            if input_str:
+                out = out.replace(input_str, '[HIDDEN]')
             try:
                 ret_code = out.splitlines()[-1]
                 out = out[:-len(ret_code)]
                 ret_code = int(ret_code)
             except ValueError:
-                raise Exception('Invalid return code. STDERR: %s'%out)
+                raise Exception('Invalid return code. CMD="%s" STDERR: "%s"'%(command, out))
 
-            cli.output = out
-            cli.log += out
             if ret_code:
-                cli.log += stderr.read()
+                err = stderr.read()
+                if input_str:
+                    err = err.replace(input_str, '[HIDDEN]')
+                out += err
+
+            cli.log += out 
+            cli.output = out
             return ret_code
         return executor
 
@@ -98,7 +104,7 @@ class SSHClient:
         def safe_exec(cmd, timeout=None, input_str=None):
             rcode = cli.execute(cmd, timeout, input_str)
             if rcode:
-                raise MEOperException(cli.log+'\nERROR! Configuration failed!')
+                raise MEOperException('\n# %s\n%s\nERROR! Configuration failed!'%(cmd, cli.output))
             return rcode
         return safe_exec
 

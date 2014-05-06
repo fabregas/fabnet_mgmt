@@ -11,3 +11,6 @@ dependencies = {'gentoo': ('pymongo', 'openssl', 'paramiko', 'cherrypy'),
 
 submodule = 'https://github.com/fabregas/fabnet_core/archive/master.zip'
 
+plugins_info = {'MGMT': 'fabnet_mgmt.operator.mgmt_operator.ManagementOperator'}
+
+

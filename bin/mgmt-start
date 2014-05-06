@@ -1,0 +1,59 @@
+#!/usr/bin/python
+import os
+import sys
+import getpass
+
+from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
+from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
+from fabnet_mgmt.engine.exceptions import *
+from fabnet_mgmt.engine.constants import *
+
+MGMT_CONFIG_FILE = '.fabnet_mgmt_db_uri'
+
+def get_mgmt_db_url():
+    home = os.environ.get('HOME', '/')
+    cfg = os.path.join(home, MGMT_CONFIG_FILE)
+    if not os.path.exists(cfg):
+        return 'localhost'
+    return open(cfg).read().strip()
+
+def start_mgmt_node():
+    dbm = MgmtDatabaseManager(get_mgmt_db_url())
+    mgmt_api = ManagementEngineAPI(dbm)
+    if mgmt_api.is_secured_installation():
+        mgmt_ks_pwd = getpass.getpass('Management key storage password: ')
+        mgmt_api.init_key_storage(mgmt_ks_pwd)
+
+    username = raw_input('Enter administrator username (admin): ')
+    if not username:
+        username = 'admin'
+    pwd = getpass.getpass('Enter administrator password: ')
+    session_id = mgmt_api.authenticate(username, pwd)
+
+    try:
+        nodes = mgmt_api.show_nodes(session_id, filters={'node_type': 'MGMT'})
+        nodes = [node[DBK_ID] for node in nodes]
+        if not nodes:
+            raise Exception('No management nodes found!')
+        node = nodes[0]
+        print('Starting "%s" node ...'%node)
+        mgmt_api.start_nodes(session_id, [node])
+        print('Done.')
+
+        #FIXME initialize mgmt_key_storage over REST API
+    finally:
+        mgmt_api.logout(session_id)
+
+
+if __name__ == '__main__':
+    try:
+        start_mgmt_node()
+    except Exception, err:
+        sys.stderr.write('ERROR! %s\n'%err)
+        sys.exit(1)
+    finally:
+        pass
+
+    sys.exit(0)
+
+

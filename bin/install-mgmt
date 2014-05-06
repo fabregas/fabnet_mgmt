@@ -14,6 +14,8 @@ from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
 from fabnet_mgmt.engine.exceptions import *
 from fabnet_mgmt.engine.constants import *
 
+MGMT_CONFIG_FILE = '.fabnet_mgmt_db_uri'
+
 def get_section(obj, section, exception=True, name=None):
     data = obj.get(section, None)
     if data is None and exception:
@@ -82,10 +84,19 @@ def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''
 
     roles = [ROLE_UM, ROLE_NM, ROLE_CF, ROLE_SS, ROLE_UPGR, ROLE_RO]
     tmp_pwd = ''.join(random.choice(string.uppercase+string.digits) for i in xrange(15))
-    mgmt_api.create_user(session_id, 'installer', tmp_pwd, roles)
+
+    new_password = getpass.getpass('Enter new admin password: ')
+    if len(new_password) < 5:
+        raise Exception('Password is too short!')
+    pwd_confirm = getpass.getpass('Confirm new admin password: ')
+    if new_password != pwd_confirm:
+        raise Exception('Passwords are not equal!')
+
+    mgmt_api.change_user_roles(session_id, 'admin', roles)
+    mgmt_api.change_user_password(session_id, 'admin', new_password)
     mgmt_api.logout(session_id)
 
-    session_id = mgmt_api.authenticate('installer', tmp_pwd)
+    session_id = mgmt_api.authenticate('admin', new_password)
 
     for node_type, nt_data in node_types.items():
         release_url = nt_data['release_url']
@@ -94,25 +105,39 @@ def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''
     print('====             Done              ====\n')
 
     print('====       Nodes installation      ====')
+    nodes = mgmt_api.show_nodes(session_id, filters={'physical': True})
+    ph_nodes = [node[DBK_ID] for node in nodes] 
     for node in nodes_list:
         for node_name, n_data in node.items():
-            print('Installing %s node...'%node_name)
-            print('  --> configuring physical node at %s ...'%n_data['ssh_addr'])
-            mgmt_api.install_physical_node(session_id, n_data['ssh_addr'], \
-                    n_data.get('ssh_user', 'root'), \
-                    n_data.get('ssh_password', None), \
-                    n_data.get('ssh_key', None))
+            if n_data['ssh_addr'] not in ph_nodes:
+                print('Installing %s node...'%node_name)
+                print('  --> configuring physical node at %s ...'%n_data['ssh_addr'])
+                mgmt_api.install_physical_node(session_id, n_data['ssh_addr'], \
+                        n_data.get('ssh_user', 'root'), \
+                        n_data.get('ssh_password', None), \
+                        n_data.get('ssh_key', None))
+                ph_nodes.append(n_data['ssh_addr'])
 
-            print('  --> configuring fabnet node ...')
+            print('  --> configuring "%s" node ...'%node_name)
             mgmt_api.install_fabnet_node(session_id, n_data['ssh_addr'], \
                     node_name, n_data['node_type'], n_data['fabnet_addr'])
             
             if n_data.has_key('config'):
                 mgmt_api.set_config(session_id, node_name, n_data['config'])
 
-    mgmt_api.remove_user(session_id, 'installer')
     mgmt_api.logout(session_id)
     print('====             Done              ====')
+
+def save_mgmt_db_url(mgmt_db_url):
+    home = os.environ.get('HOME', '/')
+    open(os.path.join(home, MGMT_CONFIG_FILE), 'w').write(mgmt_db_url)
+
+def get_mgmt_db_url():
+    home = os.environ.get('HOME', '/')
+    cfg = os.path.join(home, MGMT_CONFIG_FILE)
+    if not os.path.exists(cfg):
+        return 'localhost'
+    return open(cfg).read().strip()
 
 
 if __name__ == '__main__':
@@ -122,7 +147,7 @@ if __name__ == '__main__':
     parser.add_option("-k", "--ks", dest="ks_path",
                     help="path to management key storage (expected for secured installation)")
     parser.add_option("-d", "--mgmt-db", dest="db_str",
-                    help="management database URI")
+                    help="management database URI (save into $HOME/%s)"%MGMT_CONFIG_FILE)
 
     (options, args) = parser.parse_args()
 
@@ -145,6 +170,8 @@ if __name__ == '__main__':
         mgmt_db_url = options.db_str or 'localhost'
 
         install_cluster(mgmt_db_url, options.yaml_path, options.ks_path, ks_pwd)
+
+        save_mgmt_db_url(mgmt_db_url)
     except Exception, err:
         sys.stderr.write('ERROR! %s\n'%err)
         sys.exit(1)

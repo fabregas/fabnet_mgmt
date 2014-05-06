@@ -59,7 +59,7 @@ def install_physical_node(engine, session_id, ssh_address, ssh_user, ssh_pwd, ss
     cli_inst.safe_exec('grep MemTotal /proc/meminfo')
     parts = cli_inst.output.split('\n')[0].split(':')
     if len(parts) != 2:
-        raise Exception('/proc/meminfo error!')
+        raise Exception('/proc/meminfo error! %s'%cli_inst.output)
     mem = parts[1].strip()
     mem = to_mb(mem)
     
@@ -72,7 +72,7 @@ def install_physical_node(engine, session_id, ssh_address, ssh_user, ssh_pwd, ss
     cpu_model = ' '.join(cpu_model.split())
     cli_inst.close()
     
-    engine.db_mgr().append_physical_node(ssh_address, port, USER_NAME, mem, cpu_model, len(cores))
+    engine.db_mgr().append_physical_node(ssh_address, port, USER_NAME, mem, cpu_model, len(cores)-1)
     return ssh_address
 
 @MgmtApiMethod(ROLE_NM)
@@ -144,7 +144,7 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
         sftp.close()
         cli_inst.close()
     
-    engine.db_mgr().append_fabnet_node(ph_node_host, node_name, node_type, node_addr, home_dir_name)
+    engine.db_mgr().append_fabnet_node(ph_node_host, node_name, node_type, node_addr, '/home/%s/%s'%(USER_NAME, home_dir_name))
 
 @MgmtApiMethod(ROLE_NM)
 def remove_fabnet_node(engine, session_id, node_name):
@@ -247,6 +247,8 @@ def __start_node(engine, node, config, neighbour):
     config_str = ''
     config['node_type'] = node[DBK_NODETYPE]
     for key, value in config.items():
+        if key.startswith('_'):
+            continue
         config_str += "%s = '%s'\n"%(key, value)
 
     ssh_cli = engine.get_ssh_client()
@@ -256,7 +258,8 @@ def __start_node(engine, node, config, neighbour):
     cmd = 'echo "%s" > %s/fabnet.conf'%(config_str, node[DBK_HOMEDIR])
     cli_inst.safe_exec(cmd)
 
-    cmd = '/opt/blik/fabnet/bin/node-daemon start %s'%neighbour
+    cmd = 'FABNET_NODE_HOME="%s" /opt/blik/fabnet/bin/node-daemon start %s --input-pwd' \
+            %(node[DBK_HOMEDIR], neighbour)
 
     if engine.is_secured_installation():
         password = engine.get_node_password(node[DBK_ID])
@@ -270,7 +273,7 @@ def __stop_node(engine, node):
     ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
     cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
 
-    cmd = '/opt/blik/fabnet/bin/node-daemon stop'
+    cmd = 'FABNET_NODE_HOME="%s" /opt/blik/fabnet/bin/node-daemon stop'%node[DBK_HOMEDIR]
     cli_inst.safe_exec(cmd)
     cli_inst.close()
     
@@ -292,9 +295,14 @@ def start_nodes(engine, session_id, nodes_list=[]):
         config = engine.db_mgr().get_config(node_obj[DBK_ID], ret_all=True)
         up_nodes = engine.db_mgr().get_fabnet_nodes({DBK_STATUS: STATUS_UP})
         up_nodes.limit(1)
-        if up_nodes.count():
-            neighbour = up_nodes[0]
-        else:
+        neighbour = None
+        for node in up_nodes:
+            n_id = node[DBK_ID]
+            if n_id != node_obj[DBK_ID]:
+                neighbour = n_id
+                break
+
+        if not neighbour:
             neighbour = 'init-fabnet'
 
         __start_node(engine, node_obj, config, neighbour)

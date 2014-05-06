@@ -22,6 +22,10 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         raise MEInvalidArgException(message)
 
+    def exit(self, status=0, message=None):
+        if message:
+            raise MEInvalidArgException(message)
+
 def download_url(url):
     if url.lower().startswith('http:/') or url.lower().startswith('ftp:/'):
         file_o = urllib2.urlopen(url)
