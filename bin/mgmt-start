@@ -36,8 +36,10 @@ def start_mgmt_node():
         if not nodes:
             raise Exception('No management nodes found!')
         node = nodes[0]
-        print('Starting "%s" node ...'%node)
-        mgmt_api.start_nodes(session_id, [node])
+        print('Starting %s node ...'%node)
+        ret_str = mgmt_api.start_nodes(session_id, [node])
+        if ret_str:
+            print (ret_str)
         print('Done.')
 
         #FIXME initialize mgmt_key_storage over REST API

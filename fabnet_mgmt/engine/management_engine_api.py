@@ -320,7 +320,7 @@ class ManagementEngineAPI(object):
         key.sign_update(activation_key)
         sign = key.sign_final()
 
-        self.__ca_service.add_new_certificate_info(self._admin_ks.cert(), sign, activation_key, 36500, NODE_CERTIFICATE)
+        self.__ca_service.add_new_certificate_info(self._admin_ks.cert(), sign, activation_key, 3650, NODE_CERTIFICATE)
         pub, pri = generate_keys(None, length=1024)
         cert_req = gen_request(pri, nodeaddr, passphrase=None, OU=NODE_CERTIFICATE)
         cert = self.__ca_service.generate_certificate(activation_key, cert_req)

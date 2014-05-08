@@ -42,37 +42,42 @@ def install_physical_node(engine, session_id, ssh_address, ssh_user, ssh_pwd, ss
 
     cli_inst = ssh_cli.connect(ssh_address, port, ssh_user, ssh_pwd, ssh_key)
     
-    cli_inst.execute('sudo useradd -m %s'%(USER_NAME,))
-    cli_inst.execute('sudo groupadd %s'%(USER_NAME,))
-    cli_inst.execute('sudo usermod -a -G wheel %s'%(USER_NAME,))
-    cli_inst.safe_exec('sudo [ -d /home/%s/.ssh ] || (sudo mkdir /home/%s/.ssh; sudo chmod 700 /home/%s/.ssh)'%(USER_NAME, USER_NAME, USER_NAME))
-    cli_inst.safe_exec('echo "ssh-rsa %s" | sudo tee -a /home/%s/.ssh/authorized_keys'%(ssh_cli.get_pubkey(), USER_NAME))
-    cli_inst.safe_exec('sudo chmod 600 /home/%s/.ssh/authorized_keys'%(USER_NAME,))
-    cli_inst.safe_exec('sudo chown %s:%s -R /home/%s/.ssh/'%(USER_NAME, USER_NAME, USER_NAME))
-    cli_inst.safe_exec('sudo mkdir -p /opt/blik/fabnet/packages')
-    cli_inst.safe_exec('sudo chown %s:%s -R /opt/blik/fabnet'%(USER_NAME, USER_NAME))
-    cli_inst.close()
+    try:
+        cli_inst.execute('sudo useradd -m %s'%(USER_NAME,))
+        cli_inst.execute('sudo groupadd %s'%(USER_NAME,))
+        cli_inst.execute('sudo usermod -a -G wheel %s'%(USER_NAME,))
+        cli_inst.safe_exec('sudo [ -d /home/%s/.ssh ] || (sudo mkdir /home/%s/.ssh; sudo chmod 700 /home/%s/.ssh)'%(USER_NAME, USER_NAME, USER_NAME))
+        cli_inst.safe_exec('echo "ssh-rsa %s" | sudo tee -a /home/%s/.ssh/authorized_keys'%(ssh_cli.get_pubkey(), USER_NAME))
+        cli_inst.safe_exec('sudo chmod 600 /home/%s/.ssh/authorized_keys'%(USER_NAME,))
+        cli_inst.safe_exec('sudo chown %s:%s -R /home/%s/.ssh/'%(USER_NAME, USER_NAME, USER_NAME))
+        cli_inst.safe_exec('sudo mkdir -p /opt/blik/fabnet/packages')
+        cli_inst.safe_exec('sudo chown %s:%s -R /opt/blik/fabnet'%(USER_NAME, USER_NAME))
+    finally:
+        cli_inst.close()
 
     #check connection with system ssh key
     ssh_cli = engine.get_ssh_client()
     cli_inst = ssh_cli.connect(ssh_address, port, USER_NAME)
-    cli_inst.safe_exec('grep MemTotal /proc/meminfo')
-    parts = cli_inst.output.split('\n')[0].split(':')
-    if len(parts) != 2:
-        raise Exception('/proc/meminfo error! %s'%cli_inst.output)
-    mem = parts[1].strip()
-    mem = to_mb(mem)
+    try:
+        cli_inst.safe_exec('grep MemTotal /proc/meminfo')
+        parts = cli_inst.output.split('\n')[0].split(':')
+        if len(parts) != 2:
+            raise Exception('/proc/meminfo error! %s'%cli_inst.output)
+        mem = parts[1].strip()
+        mem = to_mb(mem)
+        
+        cli_inst.safe_exec('grep "model name" /proc/cpuinfo')
+        cores = cli_inst.output.strip().split('\n')
+        parts = cores[0].split(':')
+        if len(parts) != 2:
+            raise Exception('/proc/cpuinfo error!')
+        cpu_model = parts[1]
+        cpu_model = ' '.join(cpu_model.split())
+        cores = cli_inst.output.count('model name')
+    finally:
+        cli_inst.close()
     
-    cli_inst.safe_exec('grep "model name" /proc/cpuinfo')
-    cores = cli_inst.output.strip().split('\n')
-    parts = cores[0].split(':')
-    if len(parts) != 2:
-        raise Exception('/proc/cpuinfo error!')
-    cpu_model = parts[1]
-    cpu_model = ' '.join(cpu_model.split())
-    cli_inst.close()
-    
-    engine.db_mgr().append_physical_node(ssh_address, port, USER_NAME, mem, cpu_model, len(cores)-1)
+    engine.db_mgr().append_physical_node(ssh_address, port, USER_NAME, mem, cpu_model, cores)
     return ssh_address
 
 @MgmtApiMethod(ROLE_NM)
@@ -265,17 +270,26 @@ def __start_node(engine, node, config, neighbour):
         password = engine.get_node_password(node[DBK_ID])
     else:
         password = None
-    cli_inst.safe_exec(cmd, input_str=password)
-    cli_inst.close()
+    try:
+        rcode = cli_inst.execute(cmd, input_str=password)
+    finally:
+        cli_inst.close()
+
+    if rcode == 0:
+        return ''
+    if rcode == 11:
+        return 'Warning! Node %s is already started'%node[DBK_ID]
+    raise MEOperException('\n# %s\n%s\nERROR! Configuration failed!'%(cmd, cli_inst.output))
 
 def __stop_node(engine, node):
     ssh_cli = engine.get_ssh_client()
     ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
     cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
-
     cmd = 'FABNET_NODE_HOME="%s" /opt/blik/fabnet/bin/node-daemon stop'%node[DBK_HOMEDIR]
-    cli_inst.safe_exec(cmd)
-    cli_inst.close()
+    try:
+        cli_inst.safe_exec(cmd)
+    finally:
+        cli_inst.close()
     
 def __get_nodes_objs(engine, nodes_list):
     nodes_objs = []
@@ -290,7 +304,7 @@ def __get_nodes_objs(engine, nodes_list):
 @MgmtApiMethod(ROLE_SS)
 def start_nodes(engine, session_id, nodes_list=[]):
     nodes_objs = __get_nodes_objs(engine, nodes_list)
-
+    ret_str = ''
     for node_obj in nodes_objs:
         config = engine.db_mgr().get_config(node_obj[DBK_ID], ret_all=True)
         up_nodes = engine.db_mgr().get_fabnet_nodes({DBK_STATUS: STATUS_UP})
@@ -305,10 +319,12 @@ def start_nodes(engine, session_id, nodes_list=[]):
         if not neighbour:
             neighbour = 'init-fabnet'
 
-        __start_node(engine, node_obj, config, neighbour)
+        ret_str += __start_node(engine, node_obj, config, neighbour)
+        ret_str += '\n'
 
         node_obj[DBK_STATUS] = STATUS_UP
         engine.db_mgr().update_fabnet_node(node_obj)
+    return ret_str.strip()
 
 
 @MgmtApiMethod(ROLE_SS)

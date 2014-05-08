@@ -129,13 +129,15 @@ class NodesMgmtCLIHandler:
                         str(node[DBK_CORESCNT]).center(5),\
                         str(node[DBK_CPUMODEL]).center(60)))
         else:
-            self.writeresponse('%-20s %s %s %s'%('NODE NAME',  \
-                        'HOSTNAME'.center(20), 'TYPE'.center(10), 'ADDRESS'.center(20)))
+            self.writeresponse('%-20s %s %s %s %s'%('NODE NAME',  \
+                        'HOSTNAME'.center(20), 'TYPE'.center(10), 'STATUS'.center(10), 'ADDRESS'.center(20)))
             self.writeresponse('-'*100)
             for node in nodes:
-                self.writeresponse('%-20s %s %s %s'%(node[DBK_ID], \
+                status = 'UP' if node.get(DBK_STATUS, None) == STATUS_UP else 'DOWN'
+                self.writeresponse('%-20s %s %s %s %s'%(node[DBK_ID], \
                         node[DBK_PHNODEID].center(20),\
                         node[DBK_NODETYPE].center(10),\
+                        status.center(10),\
                         node[DBK_NODEADDR].center(20)))
 
     @cli_command(25, 'install-node', 'install_fabnet_node', 'installnode', 'i-node', validator=(str,str,str,str))
@@ -236,8 +238,11 @@ class NodesMgmtCLIHandler:
         This command starts installed fabnet node
         '''
         node_name = params[0]
-        self.mgmtManagementAPI.start_nodes(self.session_id, [node_name])
-        self.writeresponse('Node is started')
+        resp = self.mgmtManagementAPI.start_nodes(self.session_id, [node_name])
+        if resp:
+            self.writeresponse(resp)
+        else:
+            self.writeresponse('Node is started')
 
     @cli_command(31, 'stop-node', 'stop_nodes', 'stopnode', validator=(str,))
     def command_stop_node(self, params):

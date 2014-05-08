@@ -217,9 +217,7 @@ class MgmtDatabaseManager:
         return self.__mgmt_db[DBK_RELEASES].find({})
 
 
-
-
-    
+ 
     def get_nodes_list(self, status):
         recs = self.__mgmt_db[DBK_NODES].find({DBK_STATUS: status}, [DBK_NODEADDR])
         return [rec[DBK_NODEADDR] for rec in recs]
