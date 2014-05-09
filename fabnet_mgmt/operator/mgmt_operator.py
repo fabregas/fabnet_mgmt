@@ -122,6 +122,24 @@ class ManagementOperator(Operator):
     def notification(self, notify_provider, notify_type, notify_topic, message, date):
         self.__db_api.notification(notify_provider, notify_type, notify_topic, message, date)
 
+    def get_discovered_nodes(self):
+        '''
+        return nodes in following struct:
+            { node_addr:
+                { uppers: [addr, ...],
+                  superiors: [addr, ...]
+                }
+            ...
+            }
+        '''
+        ret_nodes = {}
+        nodes = self.__db_api.get_fabnet_nodes()
+        for node in nodes:
+            node_info = {'uppers': node[DBK_UPPERS],
+                         'superiors': node[DBK_SUPERIORS]}
+            ret_nodes[node[DBK_NODEADDR]] = node_info
+        return ret_nodes
+
 
 class CollectNodeStatisticsThread(threading.Thread):
     def __init__(self, operator, client, check_status=STATUS_UP):
