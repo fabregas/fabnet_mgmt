@@ -118,6 +118,7 @@ class NodesMgmtCLIHandler:
         nodes = self.mgmtManagementAPI.show_nodes(self.session_id, filters)
 
         self.writeresponse('-'*100)
+        nodes = sorted(nodes, key=lambda node: node[DBK_ID])
         if args.is_phys:
             self.writeresponse('%-20s %s %s %s'%('HOSTNAME',  \
                         'MEMORY (Mb)'.center(15), 'CORES'.center(5), 'CPU MODEL'.center(60)))
@@ -251,6 +252,9 @@ class NodesMgmtCLIHandler:
         This command stops installed fabnet node
         '''
         node_name = params[0]
-        self.mgmtManagementAPI.stop_nodes(self.session_id, [node_name])
-        self.writeresponse('Node is stopped')
+        resp = self.mgmtManagementAPI.stop_nodes(self.session_id, [node_name])
+        if resp:
+            self.writeresponse(resp)
+        else:
+            self.writeresponse('Node is stopped')
 

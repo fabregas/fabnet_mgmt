@@ -101,6 +101,18 @@ class MgmtDatabaseManager:
 
         self.__mgmt_db[DBK_USERS].update({DBK_USERNAME: username}, user)
 
+    def set_session_data(self, session_id, key, data):
+        user = self.get_user_by_session(session_id)
+        if not user:
+            return
+        user[key] = data
+        self.__mgmt_db[DBK_USERS].update({DBK_ID: user[DBK_ID]}, user)
+
+    def get_session_data(self, session_id, key):
+        user = self.get_user_by_session(session_id)
+        if not user:
+            return
+        return user.get(key, None)
 
     def add_session(self, session_id, username):
         self.__mgmt_db[DBK_SESSIONS].insert({DBK_ID: session_id, \
@@ -215,7 +227,6 @@ class MgmtDatabaseManager:
 
     def get_releases(self):
         return self.__mgmt_db[DBK_RELEASES].find({})
-
 
  
     def get_nodes_list(self, status):

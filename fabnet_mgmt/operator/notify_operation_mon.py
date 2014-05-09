@@ -19,7 +19,7 @@ from fabnet.utils.logger import oper_logger as logger
 from fabnet.core.constants import NODE_ROLE, ET_INFO, ET_ALERT
 from fabnet.operations.notify_operation import NotifyOperation
 
-from fabnet_mgmt.operator.constants import UP, DOWN
+from fabnet_mgmt.engine.constants import STATUS_UP, STATUS_DOWN
 
 class NotifyOperationMon(NotifyOperation):
     ROLES = [NODE_ROLE]
@@ -28,6 +28,6 @@ class NotifyOperationMon(NotifyOperation):
     def on_network_notify(self, notify_type, notify_provider, notify_topic, message):
         self.operator.notification(notify_provider, notify_type, notify_topic, message, datetime.now())
         if notify_topic == 'NodeUp':
-            self.operator.change_node_status(notify_provider, UP)
+            self.operator.change_node_status(notify_provider, STATUS_UP)
         elif notify_topic == 'NodeDown':
-            self.operator.change_node_status(notify_provider, DOWN)
+            self.operator.change_node_status(notify_provider, STATUS_DOWN)

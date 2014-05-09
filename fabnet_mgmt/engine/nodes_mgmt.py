@@ -7,7 +7,7 @@ import tempfile
 from fabnet_mgmt.engine.decorators import MgmtApiMethod
 from fabnet_mgmt.engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
         USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, \
-        DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, STATUS_UP, STATUS_DOWN
+        DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, DBK_NODEADDR, STATUS_UP, STATUS_DOWN
 from fabnet_mgmt.engine.exceptions import MEAlreadyExistsException, \
         MEOperException, MENotFoundException, MEBadURLException 
 
@@ -251,6 +251,12 @@ def __start_node(engine, node, config, neighbour):
     #prepare config
     config_str = ''
     config['node_type'] = node[DBK_NODETYPE]
+    config['node_name'] = node[DBK_ID]
+    parts = node[DBK_NODEADDR].split(':')
+    config['fabnet_node_host'] = parts[0] 
+    if len(parts) > 1:
+        config['fabnet_node_port'] = parts[1]
+
     for key, value in config.items():
         if key.startswith('_'):
             continue
@@ -278,8 +284,8 @@ def __start_node(engine, node, config, neighbour):
     if rcode == 0:
         return ''
     if rcode == 11:
-        return 'Warning! Node %s is already started'%node[DBK_ID]
-    raise MEOperException('\n# %s\n%s\nERROR! Configuration failed!'%(cmd, cli_inst.output))
+        return 'Node %s is already started'%node[DBK_ID]
+    raise MEOperException('\n# %s\n%s\nERROR! Node does not started!'%(cmd, cli_inst.output))
 
 def __stop_node(engine, node):
     ssh_cli = engine.get_ssh_client()
@@ -287,9 +293,15 @@ def __stop_node(engine, node):
     cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
     cmd = 'FABNET_NODE_HOME="%s" /opt/blik/fabnet/bin/node-daemon stop'%node[DBK_HOMEDIR]
     try:
-        cli_inst.safe_exec(cmd)
+        rcode = cli_inst.execute(cmd)
     finally:
         cli_inst.close()
+
+    if rcode == 0:
+        return ''
+    if rcode == 20:
+        return 'Node %s is already stopped'%node[DBK_ID]
+    raise MEOperException('\n# %s\n%s\nERROR! Node does not stopped!'%(cmd, cli_inst.output))
     
 def __get_nodes_objs(engine, nodes_list):
     nodes_objs = []
@@ -311,8 +323,8 @@ def start_nodes(engine, session_id, nodes_list=[]):
         up_nodes.limit(1)
         neighbour = None
         for node in up_nodes:
-            n_id = node[DBK_ID]
-            if n_id != node_obj[DBK_ID]:
+            n_id = node[DBK_NODEADDR]
+            if n_id != node_obj[DBK_NODEADDR]:
                 neighbour = n_id
                 break
 

@@ -24,12 +24,13 @@ from fabnet.core.config import Config
 from fabnet.utils.logger import oper_logger as logger
 from fabnet.utils.internal import total_seconds
 
-from fabnet_mgmt.operator.constants import DEFAULT_MONITOR_CONFIG, UP, DOWN
+from fabnet_mgmt.operator.constants import DEFAULT_MONITOR_CONFIG
 from fabnet_mgmt.operator.topology_cognition_mon import TopologyCognitionMon
 from fabnet_mgmt.operator.notify_operation_mon import NotifyOperationMon
 from fabnet_mgmt.operator.monitor_dbapi import PostgresDBAPI, AbstractDBAPI 
 from fabnet_mgmt.engine.mgmt_db import  MgmtDatabaseManager
 from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
+from fabnet_mgmt.engine.constants import STATUS_UP, STATUS_DOWN
 from fabnet_mgmt.cli.base_cli import BaseMgmtCLIHandler
 
 OPERLIST = [NotifyOperationMon, TopologyCognitionMon]
@@ -61,11 +62,11 @@ class ManagementOperator(Operator):
         if not self.__mgmt_engine_thrd.started():
             raise Exception('Management engine does not started!')
 
-        self.__collect_up_nodes_stat_thread = CollectNodeStatisticsThread(self, client, UP)
+        self.__collect_up_nodes_stat_thread = CollectNodeStatisticsThread(self, client, STATUS_UP)
         self.__collect_up_nodes_stat_thread.setName('%s-UP-CollectNodeStatisticsThread'%self.node_name)
         self.__collect_up_nodes_stat_thread.start()
 
-        self.__collect_dn_nodes_stat_thread = CollectNodeStatisticsThread(self, client, DOWN)
+        self.__collect_dn_nodes_stat_thread = CollectNodeStatisticsThread(self, client, STATUS_DOWN)
         self.__collect_dn_nodes_stat_thread.setName('%s-DN-CollectNodeStatisticsThread'%self.node_name)
         self.__collect_dn_nodes_stat_thread.start()
 
@@ -85,12 +86,12 @@ class ManagementOperator(Operator):
                 logger.error('DBAPI closing failed with error "%s"'%err)
 
         db_engine = Config.get('db_engine')
-        if db_engine is None:
-            self.__db_api = AbstractDBAPI()
+        if not db_engine or db_engine == 'mongodb':
+            self.__db_api = MgmtDatabaseManager(db_conn_str)
         elif db_engine == 'postgresql':
             self.__db_api = PostgresDBAPI(db_conn_str)
-        elif db_engine == 'mongodb':
-            self.__db_api = MgmtDatabaseManager(db_conn_str)
+        elif db_engine == 'abstract':
+            self.__db_api = AbstractDBAPI()
         else:
             raise Exception('Unknown database engine "%s"!'%db_engine)
         self.__db_conn_str = db_conn_str
@@ -105,7 +106,7 @@ class ManagementOperator(Operator):
         self.__db_api.close()
 
 
-    def get_nodes_list(self, status=UP):
+    def get_nodes_list(self, status=STATUS_UP):
         return self.__db_api.get_nodes_list(status)
 
     def change_node_status(self, nodeaddr, status):
@@ -123,7 +124,7 @@ class ManagementOperator(Operator):
 
 
 class CollectNodeStatisticsThread(threading.Thread):
-    def __init__(self, operator, client, check_status=UP):
+    def __init__(self, operator, client, check_status=STATUS_UP):
         threading.Thread.__init__(self)
         self.operator = operator
         self.client = client
@@ -145,10 +146,10 @@ class CollectNodeStatisticsThread(threading.Thread):
 
                     packet_obj = FabnetPacketRequest(method='NodeStatistic', sync=True)
                     ret_packet = self.client.call_sync(nodeaddr, packet_obj)
-                    if self.check_status == UP and ret_packet.ret_code:
+                    if self.check_status == STATUS_UP and ret_packet.ret_code:
                         logger.warning('Node with address %s does not response... Details: %s'%(nodeaddr, ret_packet))
-                        self.operator.change_node_status(nodeaddr, DOWN)
-                    else:
+                        self.operator.change_node_status(nodeaddr, STATUS_DOWN)
+                    elif ret_packet.ret_code == 0:
                         stat = ret_packet.ret_parameters
                         self.operator.update_node_stat(nodeaddr, stat)
 

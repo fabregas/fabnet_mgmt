@@ -63,8 +63,6 @@ DBK_NOTIFY_TYPE = 'notify_type'
 DBK_NOTIFY_DT = 'notify_dt'
 
 
-
-
 #node statuses
 STATUS_UP = 1
 STATUS_DOWN = 0

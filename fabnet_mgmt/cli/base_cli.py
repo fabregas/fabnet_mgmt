@@ -45,6 +45,13 @@ class BaseMgmtCLIHandler(TelnetHandler):
                 self.writeresponse('ERROR! %s'%err)
                 raise err
 
+        try:
+            cli_hist = self.mgmtManagementAPI.get_session_data(self.session_id, 'cli_history')
+            if cli_hist and type(cli_hist) == list:
+                self.history = [str(cmd) for cmd in cli_hist]
+        except Exception, err:
+            self.writeresponse('ERROR! %s'%err)
+
     def session_start(self):
         self.COMMANDS = {}
         self.ordered_commands = []
@@ -70,6 +77,7 @@ class BaseMgmtCLIHandler(TelnetHandler):
     def session_end(self):
         if getattr(self, 'session_id', None) is None:
             return
+        self.mgmtManagementAPI.set_session_data(self.session_id, 'cli_history', self.history[:100])
         self.mgmtManagementAPI.logout(self.session_id)
 
     @cli_command(0, 'help')

@@ -303,6 +303,12 @@ class ManagementEngineAPI(object):
     def logout(self, session_id):
         self.__db_mgr.del_session(session_id)
 
+    def set_session_data(self, session_id, key, value):
+        self.__db_mgr.set_session_data(session_id, key, value)
+
+    def get_session_data(self, session_id, key):
+        return self.__db_mgr.get_session_data(session_id, key)
+
     def __getattr__(self, attr):
         method = MgmtApiMethod.get_method(attr)
         if method is None:

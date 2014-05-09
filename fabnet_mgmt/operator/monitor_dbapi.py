@@ -15,7 +15,7 @@ from fabnet.utils.logger import oper_logger as logger
 from fabnet.utils.db_conn import PostgresqlDBConnection as DBConnection
 from fabnet.utils.db_conn import DBOperationalException, DBEmptyResult
 
-from fabnet_mgmt.operator.constants import UP, DOWN
+from fabnet_mgmt.engine.constants import STATUS_UP, STATUS_DOWN
 
 class AbstractDBAPI:
     def __init__(self):
@@ -34,7 +34,7 @@ class AbstractDBAPI:
         self.__cache[nodeaddr][0] = status 
 
     def update_node_info(self, nodeaddr, node_name, home_dir, node_type, superior_neighbours, upper_neighbours):
-        self.__cache[nodeaddr] = [UP, node_name, home_dir, node_type, superior_neighbours, upper_neighbours]
+        self.__cache[nodeaddr] = [STATUS_UP, node_name, home_dir, node_type, superior_neighbours, upper_neighbours]
 
     def update_node_stat(self, nodeaddr, stat):
         pass
@@ -70,19 +70,19 @@ class PostgresDBAPI(AbstractDBAPI):
                                     FROM nodes_info WHERE node_address=%s", (nodeaddr, ))
         if not rows:
             self._conn.execute("INSERT INTO nodes_info (node_address, node_name, home_dir, node_type, status, superiors, uppers) \
-                                VALUES (%s, %s, %s, %s, %s, %s, %s)", (nodeaddr, node_name, home_dir, node_type, UP, superiors, uppers))
+                                VALUES (%s, %s, %s, %s, %s, %s, %s)", (nodeaddr, node_name, home_dir, node_type, STATUS_UP, superiors, uppers))
         else:
-            if rows[0][1:] == (node_name, home_dir, node_type, UP, superiors, uppers):
+            if rows[0][1:] == (node_name, home_dir, node_type, STATUS_UP, superiors, uppers):
                 return
             self._conn.execute("UPDATE nodes_info \
                                 SET node_name=%s, home_dir=%s, node_type=%s, status=%s, superiors=%s, uppers=%s \
                                 WHERE id=%s", \
-                                (node_name, home_dir, node_type, UP, superiors, uppers, rows[0][0]))
+                                (node_name, home_dir, node_type, STATUS_UP, superiors, uppers, rows[0][0]))
 
     def update_node_stat(self, nodeaddr, stat):
         stat = json.dumps(stat)
         self._conn.execute("UPDATE nodes_info SET status=%s, statistic=%s, last_check=%s \
-                            WHERE node_address=%s", (UP, stat, datetime.now(), nodeaddr))
+                            WHERE node_address=%s", (STATUS_UP, stat, datetime.now(), nodeaddr))
 
     def notification(self, notify_provider, notify_type, notify_topic, message, date):
         self._conn.execute("INSERT INTO notification (node_address, notify_type, notify_topic, \
