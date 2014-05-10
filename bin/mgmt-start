@@ -31,6 +31,9 @@ def start_mgmt_node():
     session_id = mgmt_api.authenticate(username, pwd)
 
     try:
+        for nodeaddr in dbm.get_nodes_list(STATUS_UP):
+            dbm.change_node_status(nodeaddr, STATUS_DOWN)
+
         nodes = mgmt_api.show_nodes(session_id, filters={'node_type': 'MGMT'})
         nodes = [node[DBK_ID] for node in nodes]
         if not nodes:

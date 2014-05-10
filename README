@@ -6,3 +6,68 @@ This environment contain:
     - certification authority service
     - management CLI console
     - monitor node for fabnet network (MGMT type)
+
+
+
+I. Cluster installation.
+
+1. Management key storage generation.
+    For secured installation management key storage should be generated using generate-ca script.
+
+    Usage of generate-ca script:
+    # /opt/blik/fabnet/bin/generate-ca <role> <output key storage path> <cert name> [<root key storage path] [--genpwd]
+
+2. Install cluster using YAML specification.
+    Usage of install-cluster script:
+
+    # /opt/blik/fabnet/bin/install-cluster [options]
+    Options:
+      -h, --help            show this help message and exit
+      -y YAML_PATH, --yaml=YAML_PATH
+                            path to YAML for installation
+      -k KS_PATH, --ks=KS_PATH
+                            path to management key storage (expected for secured
+                            installation)
+      -d DB_STR, --mgmt-db=DB_STR
+                            management database URI (save into
+                            $HOME/.fabnet_mgmt_db_uri)
+
+
+    YAML file should be in following format:
+
+        cluster_info:
+            name: <cluster name>
+            [config:
+                <key>: <value>
+                ...
+            ]
+        
+        [ca:
+            database_conn_str: <connect string to CA database>
+        ]
+        
+        node_types:
+            <node type name>:
+                release_url: <node type release url>
+            ...
+        
+        physical_nodes:
+            - <node hostname>:
+                [ssh_port: <ssh_port>]
+                [ssh_user: <ssh password>]
+                [ssh_password: <ssh password>]
+                [ssh_key: <ssh key>]
+            ...
+
+        fabnet_nodes:
+            - <node name>:
+                ssh_host: <ssh hostname>
+                fabnet_addr: <fabnet hostname>[:<fabnet port>]
+                node_type: <node type>
+                [config:
+                    <key>: <value>
+                    ...
+                ]
+            ...
+
+
