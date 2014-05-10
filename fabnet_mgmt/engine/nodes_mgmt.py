@@ -295,18 +295,13 @@ def __stop_node(engine, node):
     ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
     cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
     cmd = 'FABNET_NODE_HOME="%s" /opt/blik/fabnet/bin/node-daemon stop'%node[DBK_HOMEDIR]
-    need_close_session = False
-    if node[DBK_ID] == engine.self_node_address:
-        need_close_session = True
-        cmd += ' &'
+    if node[DBK_NODEADDR] == engine.self_node_address:
+        cmd += ' --nowait'
 
     try:
         rcode = cli_inst.execute(cmd)
     finally:
         cli_inst.close()
-
-    if need_close_session:
-        return 0 
 
     if rcode == 0:
         return ''

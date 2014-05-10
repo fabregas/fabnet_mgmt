@@ -30,7 +30,8 @@ from fabnet_mgmt.operator.notify_operation_mon import NotifyOperationMon
 from fabnet_mgmt.operator.monitor_dbapi import PostgresDBAPI, AbstractDBAPI 
 from fabnet_mgmt.engine.mgmt_db import  MgmtDatabaseManager
 from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
-from fabnet_mgmt.engine.constants import STATUS_UP, STATUS_DOWN
+from fabnet_mgmt.engine.constants import STATUS_UP, STATUS_DOWN, \
+        DBK_UPPERS, DBK_SUPERIORS, DBK_NODEADDR 
 from fabnet_mgmt.cli.base_cli import BaseMgmtCLIHandler
 
 OPERLIST = [NotifyOperationMon, TopologyCognitionMon]
@@ -135,8 +136,8 @@ class ManagementOperator(Operator):
         ret_nodes = {}
         nodes = self.__db_api.get_fabnet_nodes()
         for node in nodes:
-            node_info = {'uppers': node[DBK_UPPERS],
-                         'superiors': node[DBK_SUPERIORS]}
+            node_info = {'uppers': node.get(DBK_UPPERS, []),
+                         'superiors': node.get(DBK_SUPERIORS, [])}
             ret_nodes[node[DBK_NODEADDR]] = node_info
         return ret_nodes
 
@@ -252,7 +253,7 @@ class DiscoverTopologyThread(threading.Thread):
 
 import SocketServer
 import socket
-class TelnetServer(SocketServer.TCPServer):
+class TelnetServer(SocketServer.ThreadingTCPServer):
     allow_reuse_address = True
     timeout = 2
 
