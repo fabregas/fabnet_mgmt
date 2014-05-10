@@ -1,12 +1,13 @@
 import os
 import re
+import base64
 import urllib2
 import zipfile
 import tempfile
 
 from fabnet_mgmt.engine.decorators import MgmtApiMethod
 from fabnet_mgmt.engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
-        USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, \
+        USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, DBK_KS_PWD_ENCR, \
         DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, DBK_NODEADDR, STATUS_UP, STATUS_DOWN
 from fabnet_mgmt.engine.exceptions import MEAlreadyExistsException, \
         MEOperException, MENotFoundException, MEBadURLException 
@@ -124,9 +125,10 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
         raise MENotFoundException('Node type "%s" does not configured in the system!'%node_type)
     
     if engine.is_secured_installation():
-        ks_path = engine.generate_node_key_storage(node_addr)
+        ks_path, ks_pwd_enc = engine.generate_node_key_storage(node_addr)
+        ks_data = base64.b64encode(open(ks_path, 'rb').read())
     else:
-        ks_path = None
+        ks_path = ks_data = ks_pwd_enc = None
 
     home_dir_name = '%s_node_home' % node_name
     
@@ -149,7 +151,8 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
         sftp.close()
         cli_inst.close()
     
-    engine.db_mgr().append_fabnet_node(ph_node_host, node_name, node_type, node_addr, '/home/%s/%s'%(USER_NAME, home_dir_name))
+    engine.db_mgr().append_fabnet_node(ph_node_host, node_name, node_type, \
+            node_addr, '/home/%s/%s'%(USER_NAME, home_dir_name), ks_data, ks_pwd_enc)
 
 @MgmtApiMethod(ROLE_NM)
 def remove_fabnet_node(engine, session_id, node_name):
@@ -273,7 +276,7 @@ def __start_node(engine, node, config, neighbour):
             %(node[DBK_HOMEDIR], neighbour)
 
     if engine.is_secured_installation():
-        password = engine.get_node_password(node[DBK_ID])
+        password = engine.decrypt_password(node[DBK_KS_PWD_ENCR])
     else:
         password = None
     try:
@@ -292,10 +295,18 @@ def __stop_node(engine, node):
     ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
     cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
     cmd = 'FABNET_NODE_HOME="%s" /opt/blik/fabnet/bin/node-daemon stop'%node[DBK_HOMEDIR]
+    need_close_session = False
+    if node[DBK_ID] == engine.self_node_address:
+        need_close_session = True
+        cmd += ' &'
+
     try:
         rcode = cli_inst.execute(cmd)
     finally:
         cli_inst.close()
+
+    if need_close_session:
+        return 0 
 
     if rcode == 0:
         return ''

@@ -253,6 +253,11 @@ class NodesMgmtCLIHandler:
         '''
         node_name = params[0]
         resp = self.mgmtManagementAPI.stop_nodes(self.session_id, [node_name])
+        if resp == 0:
+            #exit from CLI console
+            self.RUNSHELL = False
+            self.writeline("Stopping current node... Goodbye!")
+
         if resp:
             self.writeresponse(resp)
         else:

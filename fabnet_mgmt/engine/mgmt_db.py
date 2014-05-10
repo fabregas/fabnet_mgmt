@@ -156,13 +156,16 @@ class MgmtDatabaseManager:
     def remove_physical_node(self, ph_node_host):
         self.__mgmt_db[DBK_PHY_NODES].remove({DBK_ID: ph_node_host})
 
-    def append_fabnet_node(self, ph_node_host, node_name, node_type, node_addr, home_dir_name):
+    def append_fabnet_node(self, ph_node_host, node_name, node_type, \
+                        node_addr, home_dir_name, ks_data=None, ks_pwd_encrypted=None):
         self.__mgmt_db[DBK_NODES].insert({DBK_ID: node_name, \
                                         DBK_PHNODEID: ph_node_host, \
                                         DBK_NODETYPE: node_type, \
                                         DBK_NODEADDR: node_addr, \
                                         DBK_HOMEDIR: home_dir_name, \
-                                        DBK_INSTALLDATE: datetime.now()})
+                                        DBK_INSTALLDATE: datetime.now(), \
+                                        DBK_KS_DATA: ks_data, \
+                                        DBK_KS_PWD_ENCR: ks_pwd_encrypted})
 
     def update_fabnet_node(self, node_obj):
         self.__mgmt_db[DBK_NODES].update({DBK_ID: node_obj[DBK_ID]}, node_obj)

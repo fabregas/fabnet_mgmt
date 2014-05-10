@@ -152,12 +152,13 @@ class ManagementEngineAPI(object):
 
         db_mgr.set_config(None, cfg)
 
-    def __init__(self, db_mgr):
+    def __init__(self, db_mgr, self_node_addr=None):
         MgmtApiMethod.set_mgmt_engine_api(self)
 
         self.__config_cache = None
         self.__db_mgr = db_mgr
         self._admin_ks = None
+        self.self_node_address = self_node_addr
         self.__check_configuration()
 
         self.__ssh_client = SSHClient(None)
@@ -231,9 +232,6 @@ class ManagementEngineAPI(object):
         if sec:
             sec = int(sec)
         return bool(sec)
-
-    def get_node_password(self, node_name):
-        return self._admin_ks.hexdigest()
 
     def __init_ssh(self):
         if not self._admin_ks:
@@ -314,6 +312,14 @@ class ManagementEngineAPI(object):
         if method is None:
             raise AttributeError('No "%s" found!'%attr)
         return method
+    
+    def encrypt_password(self, pwd):
+        enc_pwd = self._admin_ks.encrypt(pwd) 
+        return base64.b64encode(enc_pwd)
+
+    def decrypt_password(self, enc_pwd):
+        enc_pwd = base64.b64decode(enc_pwd)
+        return self._admin_ks.decrypt(enc_pwd) 
 
     def generate_node_key_storage(self, nodeaddr):
         if ':' in nodeaddr:
@@ -331,14 +337,14 @@ class ManagementEngineAPI(object):
         cert_req = gen_request(pri, nodeaddr, passphrase=None, OU=NODE_CERTIFICATE)
         cert = self.__ca_service.generate_certificate(activation_key, cert_req)
 
-        password = self._admin_ks.hexdigest()
+        password = ''.join(random.choice(string.uppercase+string.lowercase+string.digits+'_!@#$%^&*') for i in xrange(25))
         tmp_file = NamedTemporaryFile()
         file_path = tmp_file.name
         tmp_file.close()
         out_ks = KeyStorage(file_path, password)
         out_ks.create(pri)
         out_ks.append_cert(cert)
-        return file_path
+        return file_path, self.encrypt_password(password)
 
     def get_ca_certificates(self):
         certs = self.__ca_service.get_ca_certs()

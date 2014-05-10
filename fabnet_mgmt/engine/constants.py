@@ -47,6 +47,8 @@ DBK_SUPERIORS = 'superior_nodes'
 DBK_UPPERS = 'upper_nodes'
 DBK_STATISTIC = 'statistic'
 DBK_LAST_CHECK = 'last_check'
+DBK_KS_DATA = 'ks_data'
+DBK_KS_PWD_ENCR = 'ks_pwd_enc'
 
 DBK_MEMORY = 'memory'
 DBK_CPUMODEL = 'cpu_model'

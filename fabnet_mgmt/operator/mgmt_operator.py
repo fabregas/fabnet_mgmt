@@ -56,7 +56,7 @@ class ManagementOperator(Operator):
             cert = ckey = None
         client = FriClient(bool(cert), cert, ckey)
 
-        self.__mgmt_engine_thrd = MgmgEngineThread(key_storage)
+        self.__mgmt_engine_thrd = MgmgEngineThread(key_storage, self_address)
         self.__mgmt_engine_thrd.setName('%s-MgmtEngineThread'%self.node_name)
         self.__mgmt_engine_thrd.start()
         if not self.__mgmt_engine_thrd.started():
@@ -273,10 +273,11 @@ class TelnetServer(SocketServer.TCPServer):
         print '-'*40
 
 class MgmgEngineThread(threading.Thread):
-    def __init__(self, key_storage=None):
+    def __init__(self, key_storage=None, self_address=None):
         threading.Thread.__init__(self)
         self.cli_server = None
         self.key_storage = key_storage
+        self.self_address = self_address
         self.is_error = threading.Event()
 
         self.host = Config.get('mgmt_cli_host', '0.0.0.0')
@@ -289,7 +290,7 @@ class MgmgEngineThread(threading.Thread):
         try:
             db_conn_str = Config.get('db_conn_str')
             dbm = MgmtDatabaseManager(db_conn_str)
-            mgmt_api = ManagementEngineAPI(dbm)
+            mgmt_api = ManagementEngineAPI(dbm, self.self_address)
 
             BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
 
