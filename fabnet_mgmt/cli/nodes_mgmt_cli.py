@@ -259,3 +259,83 @@ class NodesMgmtCLIHandler:
         else:
             self.writeresponse('Node is stopped')
 
+    @cli_command(33, 'fabnet-stat', 'get_nodes_stat', 'fabnetstat', 'fstat')
+    def command_fabnet_stat(self, params):
+        '''
+        Show fabnet nodes statistic
+        Fields description:
+            NODE: fabnet node name
+            VERSION: fabnet node version
+            NB: neigbours balance <uppers_balance>/<superiors_balance>
+            LA: load avarage <5 min>/<10 min>/<15 min>
+            OW: fabnet operator workers <all>/<busy>
+            OPW: fabnet operations processor workers <all>/<busy>
+            FA: fabnet FRI agents <all>/<busy>
+            MEMORY: total node memory usage in MB 
+        '''
+        stats = self.mgmtManagementAPI.get_nodes_stat(self.session_id)
+
+        self.writeresponse('-'*100)
+        self.writeresponse('%-15s %s %s %s %s %s %s %s %s'%('NODE',  'VERSION'.center(12), \
+                        'NB '.center(6), 'LA '.center(16), 'OW '.center(6), 'OPW'.center(6), \
+                        'FA '.center(6), 'MEMORY (MB)'.center(12), 'UPTIME'.center(10) ))
+        self.writeresponse('-'*100)
+
+        for node in sorted(stats.keys()):
+            n_stat = stats[node]
+            s_i = n_stat.get('SystemInfo', {})
+            ver = s_i.get('fabnet_version', 'unknown')
+            uptime = s_i.get('uptime', '-').split('.')[0]
+            la = '%s/%s/%s'%(s_i.get('loadavg_5', '-'), s_i.get('loadavg_10', '-'), s_i.get('loadavg_15', '-'))
+
+            n_i = n_stat.get('NeighboursInfo', {})
+            nb = '%s/%s'%(n_i.get('uppers_balance', '-'), n_i.get('superiors_balance', '-'))
+
+            tmp = n_stat.get('OperatorWorkerWMStat', {})
+            ow = '%s/%s'%(tmp.get('workers', '-'), tmp.get('busy', '-'))
+
+            tmp = n_stat.get('OperationsProcessorWMStat', {})
+            opw = '%s/%s'%(tmp.get('workers', '-'), tmp.get('busy', '-'))
+
+            tmp = n_stat.get('FriAgentWMStat', {})
+            fa = '%s/%s'%(tmp.get('workers', '-'), tmp.get('busy', '-'))
+
+            tmp = n_stat.get('OperationsProcessorProcStat', {})
+            mem = float(tmp.get('memory', 0))
+            tmp = n_stat.get('FriServerProcStat', {})
+            mem += float(tmp.get('memory', 0))
+            tmp = n_stat.get('OperatorProcStat', {})
+            mem += float(tmp.get('memory', 0))
+            mem /= 1000 #kB to mB
+            mem = '%.2f'%mem
+
+            self.writeresponse('%-15s %s %s %s %s %s %s %s %s'%(node, ver.center(12), \
+                        nb.center(6), la.center(16), ow.center(6), opw.center(6), \
+                        fa.center(6), mem.center(12), uptime.center(10) ))
+
+    @cli_command(34, 'operations-stat', 'get_nodes_stat', 'opstat', 'ostat')
+    def command_operations_stat(self, params):
+        '''
+        Show fabnet operations statistic
+        '''
+        stats = self.mgmtManagementAPI.get_nodes_stat(self.session_id)
+
+        self.writeresponse('-'*100)
+        self.writeresponse('%-30s %s'%('Operation',  'Process time (ms)'.center(20)))
+        self.writeresponse('-'*100)
+        operations_stat = {}
+        for node, n_stat in stats.items():
+            ops = n_stat.get('OperationsProcTime', {})
+            for op, o_time in ops.items():
+                if not op in operations_stat:
+                    operations_stat[op] = [0, 0]
+                operations_stat[op][0] += float(o_time)
+                operations_stat[op][1] += 1
+
+
+        for op_name in sorted(operations_stat.keys()):
+            o_time, cnt = operations_stat[op_name]
+            p_time = '%.1f'%((o_time / cnt)*1000,)
+            self.writeresponse('%-30s %s'%(op_name, p_time.center(20)))
+             
+

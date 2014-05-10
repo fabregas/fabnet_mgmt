@@ -596,6 +596,38 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('show-nodes -p', ['test_hostname.com', 'HOSTNAME', ' 4 '])
 
             self._cmd('shnodes', ['test_node01'])
+
+            test_stat = { "NeighboursInfo" : 
+                { "uppers_balance" : -1, "superiors_balance" : -1 },
+              "OperationsProcessorProcStat" :
+                { "threads" : 2, "memory" : 19089.44 },
+              "FriAgentWMStat" :
+                { "workers" : 5, "busy" : 0 },
+              "SystemInfo" :
+                { "loadavg_10" : "0.43", "loadavg_5" : "0.21", "uptime" : "0:03:23.001197", "loadavg_15" : "0.48", "fabnet_version" : "unknown" },
+              "OperatorWorkerWMStat" : 
+                { "workers" : 5, "busy" : 1 },
+              "FriServerProcStat" :
+                { "threads" : 6, "memory" : 19276.4 },
+              "OperationsProcessorWMStat" :
+                { "workers" : 5, "busy" : 0 },
+              "OperatorProcStat" :
+                { "threads" : 14, "memory" : 21156 },
+              "OperationsProcTime" :
+                { "GetNodeConfig" : 0, "TopologyCognition" : 0.0032046666666666664, "NotifyOperation" : 0, "UpgradeNode" : 0, 
+                    "ManageNeighbour" : 0, "UpdateNodeConfig" : 0, "NodeStatistic" : 0.0038022, "DiscoveryOperation" : 0 },
+            }
+            MgmtDatabaseManager.MGMT_DB_NAME = 'test_fabnet_mgmt_db'
+            dbm = MgmtDatabaseManager('localhost')
+            dbm.update_node_stat('externa_addr_test_node:2222', test_stat)
+
+            self._cmd('help fabnet-stat', ['fabnetstat', 'fstat'])
+            self._cmd('fabnet-stat', ['test_node01', 'MEMORY', 'VERSION', 'unknown', \
+                                        '5/0', '5/1', '0.21/0.43/0.48', '-1/-1'])
+
+            self._cmd('help operations-stat', ['opstat', 'ostat'])
+            self._cmd('opstat', ['Operation', 'Process time', \
+                                'TopologyCognition', '3.2', '3.8'])
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)

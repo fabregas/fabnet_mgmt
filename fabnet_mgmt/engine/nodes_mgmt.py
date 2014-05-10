@@ -311,12 +311,15 @@ def __stop_node(engine, node):
     
 def __get_nodes_objs(engine, nodes_list):
     nodes_objs = []
-    for node_name in nodes_list:
-        node_name = node_name.lower()
-        items = engine.db_mgr().get_fabnet_nodes({DBK_ID: node_name})
-        if not items.count():
-            raise MENotFoundException('Node "%s" does not found!'%node_name) 
-        nodes_objs.append(items[0])
+    if nodes_list:
+        for node_name in nodes_list:
+            node_name = node_name.lower()
+            items = engine.db_mgr().get_fabnet_nodes({DBK_ID: node_name})
+            if not items.count():
+                raise MENotFoundException('Node "%s" does not found!'%node_name) 
+            nodes_objs.append(items[0])
+    else:
+        return engine.db_mgr().get_fabnet_nodes({})
     return nodes_objs
 
 @MgmtApiMethod(ROLE_SS)
@@ -354,6 +357,16 @@ def stop_nodes(engine, session_id, nodes_list=[]):
 
         node_obj[DBK_STATUS] = STATUS_DOWN
         engine.db_mgr().update_fabnet_node(node_obj)
+
+@MgmtApiMethod(ROLE_RO)
+def get_nodes_stat(engine, session_id, nodes_list=[]):
+    nodes_objs = __get_nodes_objs(engine, nodes_list)
+    ret_list = {}
+    for node_obj in nodes_objs:
+        stat = node_obj.get('statistic', {})
+        ret_list[node_obj[DBK_ID]] = stat 
+    return ret_list
+
 
 @MgmtApiMethod(ROLE_SS)
 def reload_nodes(self, session_id, nodes_list=[]):
