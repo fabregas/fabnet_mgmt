@@ -37,8 +37,6 @@ from fabnet_mgmt.cli.base_cli import BaseMgmtCLIHandler
 OPERLIST = [NotifyOperationMon, TopologyCognitionMon]
 
 class ManagementOperator(Operator):
-    OPTYPE = 'Monitor'
-
     def __init__(self, self_address, home_dir='/tmp/', key_storage=None, is_init_node=False, node_name='unknown', config={}):
         cur_cfg = {}
         cur_cfg.update(DEFAULT_MONITOR_CONFIG)

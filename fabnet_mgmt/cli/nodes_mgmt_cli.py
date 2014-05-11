@@ -284,7 +284,10 @@ class NodesMgmtCLIHandler:
         for node in sorted(stats.keys()):
             n_stat = stats[node]
             s_i = n_stat.get('SystemInfo', {})
-            ver = s_i.get('fabnet_version', 'unknown')
+            ver = s_i.get('node_version', 'unknown')
+            if ver == 'unknown':
+                ver = s_i.get('core_version', 'unknown')
+
             uptime = s_i.get('uptime', '-').split('.')[0]
             la = '%s/%s/%s'%(s_i.get('loadavg_5', '-'), s_i.get('loadavg_10', '-'), s_i.get('loadavg_15', '-'))
 

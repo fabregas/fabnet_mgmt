@@ -363,7 +363,10 @@ def get_nodes_stat(engine, session_id, nodes_list=[]):
     nodes_objs = __get_nodes_objs(engine, nodes_list)
     ret_list = {}
     for node_obj in nodes_objs:
-        stat = node_obj.get('statistic', {})
+        if node_obj[DBK_STATUS] == STATUS_DOWN:
+            stat = {}
+        else:
+            stat = node_obj.get('statistic', {})
         ret_list[node_obj[DBK_ID]] = stat 
     return ret_list
 
