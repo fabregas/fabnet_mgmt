@@ -7,6 +7,7 @@ from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
 from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
 from fabnet_mgmt.engine.exceptions import *
 from fabnet_mgmt.engine.constants import *
+from fabnet_mgmt.rest.client import *
 
 MGMT_CONFIG_FILE = '.fabnet_mgmt_db_uri'
 
@@ -45,7 +46,10 @@ def start_mgmt_node():
             print (ret_str)
         print('Done.')
 
-        #FIXME initialize mgmt_key_storage over REST API
+        config = mgmt_api.get_config(session_id, node)
+        rest_port = config.get('mgmt_rest_port', '8080')
+        api = RestAPI('http://127.0.0.1:%s'%rest_port, username, pwd)
+        api.initKeyStorage(mgmt_ks_pwd)
     finally:
         mgmt_api.logout(session_id)
 

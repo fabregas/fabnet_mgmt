@@ -310,7 +310,10 @@ class NodesMgmtCLIHandler:
             tmp = n_stat.get('OperatorProcStat', {})
             mem += float(tmp.get('memory', 0))
             mem /= 1000 #kB to mB
-            mem = '%.2f'%mem
+            if mem:
+                mem = '%.2f'%mem
+            else:
+                mem = '-'
 
             self.writeresponse('%-15s %s %s %s %s %s %s %s %s'%(node, ver.center(12), \
                         nb.center(6), la.center(16), ow.center(6), opw.center(6), \

@@ -14,6 +14,7 @@ import time
 import threading
 import random
 import json
+import BaseHTTPServer
 from datetime import datetime
 from Queue import Queue
 
@@ -33,6 +34,7 @@ from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
 from fabnet_mgmt.engine.constants import STATUS_UP, STATUS_DOWN, \
         DBK_UPPERS, DBK_SUPERIORS, DBK_NODEADDR 
 from fabnet_mgmt.cli.base_cli import BaseMgmtCLIHandler
+from fabnet_mgmt.rest.rest_service import RESTHandler 
 
 OPERLIST = [NotifyOperationMon, TopologyCognitionMon]
 
@@ -55,11 +57,34 @@ class ManagementOperator(Operator):
             cert = ckey = None
         client = FriClient(bool(cert), cert, ckey)
 
-        self.__mgmt_engine_thrd = MgmgEngineThread(key_storage, self_address)
-        self.__mgmt_engine_thrd.setName('%s-MgmtEngineThread'%self.node_name)
-        self.__mgmt_engine_thrd.start()
-        if not self.__mgmt_engine_thrd.started():
-            raise Exception('Management engine does not started!')
+
+        db_conn_str = Config.get('db_conn_str')
+        self.__dbm = MgmtDatabaseManager(db_conn_str)
+        mgmt_api = ManagementEngineAPI(self.__dbm, self_address)
+        BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
+        host = Config.get('mgmt_cli_host', '0.0.0.0')
+        cli_port = int(Config.get('mgmt_cli_port', '23'))
+        cli_server = TelnetServer((host, cli_port), BaseMgmtCLIHandler)
+        self.__cli_api_thrd = ExternalAPIThread(cli_server, host, cli_port)
+        self.__cli_api_thrd.setName('%s-CLIAPIThread'%self.node_name)
+        self.__cli_api_thrd.start()
+
+        RESTHandler.setup_mgmt_api(mgmt_api)
+        host = Config.get('mgmt_rest_host', '0.0.0.0')
+        rest_port = int(Config.get('mgmt_rest_port', '8080'))
+        server_address = (host, rest_port)
+        rest_server = BaseHTTPServer.HTTPServer((host, rest_port), RESTHandler)
+        self.__rest_api_thrd = ExternalAPIThread(rest_server, host, rest_port)
+        self.__rest_api_thrd.setName('%s-RESTAPIThread'%self.node_name)
+        self.__rest_api_thrd.start()
+
+        if not self.__cli_api_thrd.started():
+            self.__rest_api_thrd.stop()
+            raise Exception('CLI API does not started!')
+
+        if not self.__rest_api_thrd.started():
+            self.__cli_api_thrd.stop()
+            raise Exception('CLI API does not started!')
 
         self.__collect_up_nodes_stat_thread = CollectNodeStatisticsThread(self, client, STATUS_UP)
         self.__collect_up_nodes_stat_thread.setName('%s-UP-CollectNodeStatisticsThread'%self.node_name)
@@ -100,8 +125,10 @@ class ManagementOperator(Operator):
         self.__collect_dn_nodes_stat_thread.stop()
         self.__discovery_topology_thrd.stop()
 
-        self.__mgmt_engine_thrd.stop()
+        self.__rest_api_thrd.stop()
+        self.__cli_api_thrd.stop()
         self.__discovery_topology_thrd.join()
+        self.__dbm.close()
         self.__db_api.close()
 
 
@@ -271,40 +298,29 @@ class TelnetServer(SocketServer.ThreadingTCPServer):
         traceback.print_exc()
         print '-'*40
 
-class MgmgEngineThread(threading.Thread):
-    def __init__(self, key_storage=None, self_address=None):
+
+
+class ExternalAPIThread(threading.Thread):
+    def __init__(self, server, host, port):
         threading.Thread.__init__(self)
-        self.cli_server = None
-        self.key_storage = key_storage
-        self.self_address = self_address
+        self.__server = server
         self.is_error = threading.Event()
 
-        self.host = Config.get('mgmt_cli_host', '0.0.0.0')
-        self.port = Config.get('mgmt_cli_port', '23')
+        self.host = host
+        self.port = port
 
     def run(self):
         logger.info('Thread started!')
 
         dbm = None
         try:
-            db_conn_str = Config.get('db_conn_str')
-            dbm = MgmtDatabaseManager(db_conn_str)
-            mgmt_api = ManagementEngineAPI(dbm, self.self_address)
-
-            BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
-
-            self.cli_server = TelnetServer((self.host, int(self.port)), BaseMgmtCLIHandler)
-            self.cli_server.serve_forever()
+            self.__server.serve_forever()
         except Exception, err:
             self.is_error.set()
             import traceback
             logger.write = logger.info
             traceback.print_exc(file=logger)
             logger.error('Unexpected error: %s'%err)
-        finally:
-            if dbm:
-                dbm.close()
-
         logger.info('Thread stopped!')
 
     def started(self):
@@ -320,11 +336,10 @@ class MgmgEngineThread(threading.Thread):
                 sock.close()
         return False
                 
-
     def stop(self):
-        if self.cli_server:
-            self.cli_server.shutdown()
-            self.cli_server.server_close()
+        if self.__server:
+            self.__server.shutdown()
+            self.__server.server_close()
         self.join()
 
 

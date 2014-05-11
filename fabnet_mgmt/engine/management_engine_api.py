@@ -185,8 +185,7 @@ class ManagementEngineAPI(object):
         return self.__ssh_client
 
     def get_config_var(self, var, default=None):
-        if self.__config_cache is None:
-            self.__config_cache = self.__db_mgr.get_config(None)
+        self.__config_cache = self.__db_mgr.get_config(None)
         return self.__config_cache.get(var, default)
 
     def update_config(self, new_config):
@@ -298,6 +297,9 @@ class ManagementEngineAPI(object):
         self.__db_mgr.add_session(session_id, username)
         return session_id
 
+    def init_session_key_storage(self, session_id, ks_passwd):
+        return self.init_key_storage(ks_passwd)
+
     def logout(self, session_id):
         self.__db_mgr.del_session(session_id)
 
@@ -351,3 +353,22 @@ class ManagementEngineAPI(object):
         certs.append(self._admin_ks.cert())
         return '\n'.join(certs)
 
+
+
+@MgmtApiMethod(ROLE_RO)
+def get_config(engine, session_id, node_name, ret_all=False):
+    return engine.db_mgr().get_config(node_name, ret_all)
+
+@MgmtApiMethod(ROLE_CF)
+def set_config(engine, session_id, node_name, config):
+    '''set configuration for specific node or globally
+    config - dict where key=config parameter, value=parameter value
+    If node_name is None - global config should be updated
+    '''
+    if node_name:
+        node_name = node_name.lower()
+
+    if type(config) != dict:
+        raise MEInvalidArgException('Config should be a dict')
+
+    engine.db_mgr().set_config(node_name, config)

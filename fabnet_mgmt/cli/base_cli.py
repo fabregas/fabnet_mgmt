@@ -77,7 +77,8 @@ class BaseMgmtCLIHandler(TelnetHandler):
     def session_end(self):
         if getattr(self, 'session_id', None) is None:
             return
-        self.mgmtManagementAPI.set_session_data(self.session_id, 'cli_history', self.history[:100])
+        if self.history:
+            self.mgmtManagementAPI.set_session_data(self.session_id, 'cli_history', self.history[:100])
         self.mgmtManagementAPI.logout(self.session_id)
 
     @cli_command(0, 'help')

@@ -213,27 +213,11 @@ def set_release(engine, session_id, node_type, release_url):
 
 @MgmtApiMethod(ROLE_RO)
 def get_releases(engine, session_id):
-    return engine.db_mgr().get_releases()
-
-
-@MgmtApiMethod(ROLE_RO)
-def get_config(engine, session_id, node_name, ret_all=False):
-    return engine.db_mgr().get_config(node_name, ret_all)
-
-@MgmtApiMethod(ROLE_CF)
-def set_config(engine, session_id, node_name, config):
-    '''set configuration for specific node or globally
-    config - dict where key=config parameter, value=parameter value
-    If node_name is None - global config should be updated
-    '''
-    if node_name:
-        node_name = node_name.lower()
-
-    if type(config) != dict:
-        raise MEInvalidArgException('Config should be a dict')
-
-    engine.db_mgr().set_config(node_name, config)
-
+    data = engine.db_mgr().get_releases()
+    ret_data = []
+    for item in data:
+        ret_data.append(dict(item))
+    return ret_data
 
 @MgmtApiMethod(ROLE_CF)
 def apply_config(engine, session_id, node_name):

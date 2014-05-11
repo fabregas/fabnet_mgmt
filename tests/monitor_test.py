@@ -28,6 +28,7 @@ from fabnet.core.key_storage import init_keystore
 from fabnet.utils.logger import logger
 
 from fabnet_mgmt.engine.constants import *
+from fabnet_mgmt.rest.client import *
 
 import pexpect
 
@@ -75,7 +76,8 @@ class TestMonitorNode(unittest.TestCase):
                 Config.update_config({'db_engine': 'mongodb', \
                         'db_conn_str': "mongodb://127.0.0.1/%s"%MONITOR_DB,\
                         'COLLECT_NODES_STAT_TIMEOUT': 1,
-                        'mgmt_cli_port': 2323})
+                        'mgmt_cli_port': 2323,
+                        'mgmt_rest_port': 9923})
             else:
                 ntype = 'Base'
             args = ['/usr/bin/python', './fabnet_core/bin/fabnet-node', address, n_node, 'NODE%.02i'%i, home, ntype, \
@@ -219,6 +221,11 @@ class TestMonitorNode(unittest.TestCase):
             cli.expect(pexpect.EOF)
         finally:
             cli.close(force=True)
+
+    def test03_check_rest(self):
+        api = RestAPI('http://127.0.0.1:9923', 'admin', 'admin')
+        user_info = api.getUserInfo('admin')
+        self.assertEqual(user_info[DBK_USERNAME], 'admin')
 
     def test09_stopnet(self):
         for process in PROCESSES:
