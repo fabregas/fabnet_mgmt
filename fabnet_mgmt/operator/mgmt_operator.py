@@ -64,6 +64,7 @@ class ManagementOperator(Operator):
         BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
         host = Config.get('mgmt_cli_host', '0.0.0.0')
         cli_port = int(Config.get('mgmt_cli_port', '23'))
+        logger.info('Starting CLI at %s:%s'%(host, cli_port))
         cli_server = TelnetServer((host, cli_port), BaseMgmtCLIHandler)
         self.__cli_api_thrd = ExternalAPIThread(cli_server, host, cli_port)
         self.__cli_api_thrd.setName('%s-CLIAPIThread'%self.node_name)
@@ -72,7 +73,7 @@ class ManagementOperator(Operator):
         RESTHandler.setup_mgmt_api(mgmt_api)
         host = Config.get('mgmt_rest_host', '0.0.0.0')
         rest_port = int(Config.get('mgmt_rest_port', '8080'))
-        server_address = (host, rest_port)
+        logger.info('Starting REST at %s:%s'%(host, rest_port))
         rest_server = BaseHTTPServer.HTTPServer((host, rest_port), RESTHandler)
         self.__rest_api_thrd = ExternalAPIThread(rest_server, host, rest_port)
         self.__rest_api_thrd.setName('%s-RESTAPIThread'%self.node_name)
