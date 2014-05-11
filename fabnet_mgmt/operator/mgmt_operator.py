@@ -10,10 +10,12 @@ Copyright (C) 2012 Konstantin Andrusenko
 @date November 11, 2012
 """
 import os
+import ssl
 import time
 import threading
 import random
 import json
+import tempfile
 import BaseHTTPServer
 from datetime import datetime
 from Queue import Queue
@@ -60,12 +62,15 @@ class ManagementOperator(Operator):
 
         db_conn_str = Config.get('db_conn_str')
         self.__dbm = MgmtDatabaseManager(db_conn_str)
-        mgmt_api = ManagementEngineAPI(self.__dbm, self_address)
+        self.mgmt_api = mgmt_api = ManagementEngineAPI(self.__dbm, self_address)
         BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
         host = Config.get('mgmt_cli_host', '0.0.0.0')
         cli_port = int(Config.get('mgmt_cli_port', '23'))
         logger.info('Starting CLI at %s:%s'%(host, cli_port))
         cli_server = TelnetServer((host, cli_port), BaseMgmtCLIHandler)
+        #if key_storage:
+        #    cert, key = self.get_ssl_keycert('cli_api')
+        #    cli_server.socket = ssl.wrap_socket(cli_server.socket, certfile=cert, keyfile=key, server_side=True)
         self.__cli_api_thrd = ExternalAPIThread(cli_server, host, cli_port)
         self.__cli_api_thrd.setName('%s-CLIAPIThread'%self.node_name)
         self.__cli_api_thrd.start()
@@ -75,6 +80,9 @@ class ManagementOperator(Operator):
         rest_port = int(Config.get('mgmt_rest_port', '8080'))
         logger.info('Starting REST at %s:%s'%(host, rest_port))
         rest_server = BaseHTTPServer.HTTPServer((host, rest_port), RESTHandler)
+        if key_storage:
+            cert, key = self.get_ssl_keycert('rest_api')
+            rest_server.socket = ssl.wrap_socket(rest_server.socket, certfile=cert, keyfile=key, server_side=True)
         self.__rest_api_thrd = ExternalAPIThread(rest_server, host, rest_port)
         self.__rest_api_thrd.setName('%s-RESTAPIThread'%self.node_name)
         self.__rest_api_thrd.start()
@@ -98,6 +106,19 @@ class ManagementOperator(Operator):
         self.__discovery_topology_thrd = DiscoverTopologyThread(self)
         self.__discovery_topology_thrd.setName('%s-DiscoverTopologyThread'%self.node_name)
         self.__discovery_topology_thrd.start()
+
+    def get_ssl_keycert(self, context): 
+        cert_dir = os.path.join(self.home_dir, 'certs')
+        if not os.path.exists(cert_dir):
+            os.mkdir(cert_dir)
+        cert_file = os.path.join(cert_dir, '%s_cert.pem'%context)
+        key_file = os.path.join(cert_dir, '%s_key.pem'%context)
+        if os.path.exists(cert_file) and os.path.exists(key_file):
+            return cert_file, key_file
+        cert, key = self.mgmt_api.generate_ssl_keycert(context)
+        open(cert_file, 'w').write(cert)
+        open(key_file, 'w').write(key)
+        return cert_file, key_file
 
     def check_database(self):
         db_conn_str = Config.get('db_conn_str')
@@ -312,8 +333,6 @@ class ExternalAPIThread(threading.Thread):
 
     def run(self):
         logger.info('Thread started!')
-
-        dbm = None
         try:
             self.__server.serve_forever()
         except Exception, err:

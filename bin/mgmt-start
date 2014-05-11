@@ -45,17 +45,18 @@ def start_mgmt_node():
         ret_str = mgmt_api.start_nodes(session_id, [node])
         if ret_str:
             print (ret_str)
-
-        config = mgmt_api.get_config(session_id, node)
-        rest_port = config.get('mgmt_rest_port', '8080')
-        for i in xrange(10):
-            try:
-                api = RestAPI('http://127.0.0.1:%s'%rest_port, username, pwd)
-            except RESTException, err:
-                time.sleep(1)
-                continue
-            api.initKeyStorage(mgmt_ks_pwd)
-            break
+        else:
+            config = mgmt_api.get_config(session_id, node)
+            rest_port = config.get('mgmt_rest_port', '8080')
+            for i in xrange(10):
+                try:
+                    s = 's' if mgmt_api.is_secured_installation() else ''
+                    api = RestAPI('http%s://127.0.0.1:%s'%(s, rest_port), username, pwd)
+                except RESTException, err:
+                    time.sleep(1)
+                    continue
+                api.initKeyStorage(mgmt_ks_pwd)
+                break
         print('Done.')
     finally:
         mgmt_api.logout(session_id)

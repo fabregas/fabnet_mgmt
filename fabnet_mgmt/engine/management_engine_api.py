@@ -31,6 +31,7 @@ from fabnet_mgmt.engine.nodes_mgmt import *
 
 from fabnet_ca.ca_service import CAService
 from fabnet_ca.cert_req_generator import generate_keys, gen_request
+from fabnet_ca.openssl import Openssl
 
 from fabnet.core.constants import NODE_CERTIFICATE
 from fabnet.core.key_storage import KeyStorage
@@ -353,6 +354,10 @@ class ManagementEngineAPI(object):
         certs.append(self._admin_ks.cert())
         return '\n'.join(certs)
 
+    def generate_ssl_keycert(self, context):
+        pub, pri = generate_keys(None, length=1024)
+        cert = Openssl().generate_self_signed_cert(356*100, '/CN=%s'%context, pri, passphrase=None)
+        return cert, pri
 
 
 @MgmtApiMethod(ROLE_RO)

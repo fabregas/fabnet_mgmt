@@ -16,7 +16,7 @@ class RestAPI(object):
         auth = base64.encodestring('%s:%s' % (username, password)).replace('\n', '')
         self.__headers = {"Authorization": "Basic %s" % auth}
 
-        self.__conn_class = HTTPSConnection if service == 'https' else HTTPConnection
+        self.__conn_class = HTTPSConnection if service == 'https:' else HTTPConnection
         self.__methods = self.__call('GET', '')
 
     def __call(self, http_method, method, *args, **kvargs):

@@ -223,7 +223,7 @@ class TestMonitorNode(unittest.TestCase):
             cli.close(force=True)
 
     def test03_check_rest(self):
-        api = RestAPI('http://127.0.0.1:9923', 'admin', 'admin')
+        api = RestAPI('https://127.0.0.1:9923', 'admin', 'admin')
         user_info = api.getUserInfo('admin')
         self.assertEqual(user_info[DBK_USERNAME], 'admin')
 
