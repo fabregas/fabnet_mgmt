@@ -294,7 +294,7 @@ def __stop_node(engine, node):
         return 'Node %s is already stopped'%node[DBK_ID]
     raise MEOperException('\n# %s\n%s\nERROR! Node does not stopped!'%(cmd, cli_inst.output))
 
-def __upgrade_node(engine, node):
+def __upgrade_node(engine, node, force):
     ssh_cli = engine.get_ssh_client()
     ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
     cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
@@ -303,7 +303,7 @@ def __upgrade_node(engine, node):
     if not release:
         return
     release_url = release[DBK_RELEASE_URL]
-    cmd = 'sudo /opt/blik/fabnet/bin/pkg-install %s'%release_url
+    cmd = 'sudo /opt/blik/fabnet/bin/pkg-install %s %s'%(release_url, '--force' if force else '')
     cli_inst.safe_exec(cmd)
 
 def __get_nodes_objs(engine, nodes_list):
@@ -324,8 +324,9 @@ def start_nodes(engine, session_id, nodes_list=[]):
     nodes_objs = __get_nodes_objs(engine, nodes_list)
     ret_str = ''
     for node_obj in nodes_objs:
-        if node_obj.get(DBK_UPGRADE_FLAG, False):
-            __upgrade_node(engine, node_obj)
+        need_upgr = node_obj.get(DBK_UPGRADE_FLAG, False)
+        if need_upgr:
+            __upgrade_node(engine, node_obj, need_upgr == 'need_force')
             
         config = engine.db_mgr().get_config(node_obj[DBK_ID], ret_all=True)
         up_nodes = engine.db_mgr().get_fabnet_nodes({DBK_STATUS: STATUS_UP})
@@ -381,7 +382,7 @@ def get_nodes_stat(engine, session_id, nodes_list=[]):
 def software_upgrade(engine, session_id, force=False):
     nodes = engine.db_mgr().get_fabnet_nodes(filter_map={DBK_STATUS: STATUS_DOWN})
     for node in nodes:
-        node[DBK_UPGRADE_FLAG] = True
+        node[DBK_UPGRADE_FLAG] = 'need_force' if force else 'need'
         engine.db_mgr().update_fabnet_node(node)
 
     engine.db_mgr().set_config(None, {DBK_UPGRADE_FLAG: 'need_force' if force else 'need'})
