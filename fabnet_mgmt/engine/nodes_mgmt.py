@@ -99,7 +99,7 @@ def get_ssh_key(engine, session_id, ph_node_host=None):
     return 'ssh-rsa %s' % ssh_cli.get_pubkey()
 
 @MgmtApiMethod(ROLE_NM)
-def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, node_addr):
+def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, node_addr, force_sw_upgrade=True):
     node_name = node_name.lower()
     node_type = node_type.upper()
     
@@ -138,7 +138,8 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
     try:
         sftp.put(FABNET_INSTALLER_PATH, '/home/%s/installer.py'%USER_NAME)
 
-        cli_inst.safe_exec('python /home/%s/installer.py %s --force'%(USER_NAME, release_url))
+        force = '--force' if force_sw_upgrade else ''
+        cli_inst.safe_exec('python /home/%s/installer.py %s %s'%(USER_NAME, release_url, force))
         cli_inst.safe_exec('mkdir -p %s'%home_dir_name)
         if ks_path:
             #save CA certs

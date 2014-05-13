@@ -76,7 +76,7 @@ def reset_cluster(mgmt_db_url):
         db_name = MgmtDatabaseManager.MGMT_DB_NAME
     client.drop_database(db_name)
 
-def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''):
+def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd='', is_upgrade=False):
     cluster_info, ca_info, node_types, \
             p_nodes_list, nodes_list = parse_install_file(install_file_path)
 
@@ -89,29 +89,36 @@ def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''
     if ca_db_conn_str and not mgmt_ks_path:
         raise Exception('Management key storage is expected for secured installation!')
 
-    print('==== Initial cluster configuration ====')
-    ManagementEngineAPI.initial_configuration(dbm, cluster_info['name'], \
-            mgmt_ks_path, ca_db_conn_str)
+    if is_upgrade:
+        print('========= Upgrading an existing cluster =========')
+    else:
+        print('========= Initial cluster configuration =========')
+        ManagementEngineAPI.initial_configuration(dbm, cluster_info['name'], \
+                mgmt_ks_path, ca_db_conn_str)
     
     try:
         mgmt_api = ManagementEngineAPI(dbm)
         if mgmt_ks_path:
             mgmt_api.init_key_storage(mgmt_ks_pwd)
-        session_id = mgmt_api.authenticate('admin', 'admin')
 
-        roles = [ROLE_UM, ROLE_NM, ROLE_CF, ROLE_SS, ROLE_UPGR, ROLE_RO]
-        tmp_pwd = ''.join(random.choice(string.uppercase+string.digits) for i in xrange(15))
+        if not is_upgrade:
+            session_id = mgmt_api.authenticate('admin', 'admin')
 
-        new_password = getpass.getpass('Enter new admin password: ')
-        if len(new_password) < 5:
-            raise Exception('Password is too short!')
-        pwd_confirm = getpass.getpass('Confirm new admin password: ')
-        if new_password != pwd_confirm:
-            raise Exception('Passwords are not equal!')
+            roles = [ROLE_UM, ROLE_NM, ROLE_CF, ROLE_SS, ROLE_UPGR, ROLE_RO]
+            tmp_pwd = ''.join(random.choice(string.uppercase+string.digits) for i in xrange(15))
 
-        mgmt_api.change_user_roles(session_id, 'admin', roles)
-        mgmt_api.change_user_password(session_id, 'admin', new_password)
-        mgmt_api.logout(session_id)
+            new_password = getpass.getpass('Enter new admin password: ')
+            if len(new_password) < 5:
+                raise Exception('Password is too short!')
+            pwd_confirm = getpass.getpass('Confirm new admin password: ')
+            if new_password != pwd_confirm:
+                raise Exception('Passwords are not equal!')
+
+            mgmt_api.change_user_roles(session_id, 'admin', roles)
+            mgmt_api.change_user_password(session_id, 'admin', new_password)
+            mgmt_api.logout(session_id)
+        else:
+            new_password = getpass.getpass('Enter new admin password: ')
 
         session_id = mgmt_api.authenticate('admin', new_password)
 
@@ -122,39 +129,49 @@ def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''
         if cluster_info.has_key('config'):
             mgmt_api.set_config(session_id, None, cluster_info['config'])
 
-        print('====             Done              ====\n')
+        print('=========             Done              =========\n')
 
-        print('====  Physical nodes installation  ====')
+        print('=========  Physical nodes installation  =========')
         nodes = mgmt_api.show_nodes(session_id, filters={'physical': True})
         ph_nodes = [node[DBK_ID] for node in nodes] 
         for node in p_nodes_list:
             for node_host, n_data in node.items():
-                if node_host not in ph_nodes:
-                    print('  --> configuring physical node at %s ...'%node_host)
-                    mgmt_api.install_physical_node(session_id, \
-                            '%s:%s'%(node_host, n_data.get('ssh_port', '22')), \
-                            n_data.get('ssh_user', 'root'), \
-                            n_data.get('ssh_password', None), \
-                            n_data.get('ssh_key', None))
-                    ph_nodes.append(node_host)
-        print('====             Done              ====\n')
+                if node_host in ph_nodes:
+                    print('  ** physical node %s is already installed!'%node_host)
+                    continue
 
-        print('====   Fabnet nodes installation   ====')
+                print('  --> configuring physical node at %s ...'%node_host)
+                mgmt_api.install_physical_node(session_id, \
+                        '%s:%s'%(node_host, n_data.get('ssh_port', '22')), \
+                        n_data.get('ssh_user', 'root'), \
+                        n_data.get('ssh_password', None), \
+                        n_data.get('ssh_key', None))
+                ph_nodes.append(node_host)
+        print('=========             Done              =========\n')
+
+        print('=========   Fabnet nodes installation   =========')
+        nodes = mgmt_api.show_nodes(session_id, filters={'physical': False})
         for node in nodes_list:
             for node_name, n_data in node.items():
+                if node_host in ph_nodes:
+                    print('  ** fabnet node %s is already installed!'%node_name)
+                    continue
+
                 print('  --> configuring "%s" node ...'%node_name)
                 mgmt_api.install_fabnet_node(session_id, n_data['ssh_host'], \
-                        node_name, n_data['node_type'], n_data['fabnet_addr'])
+                        node_name, n_data['node_type'], n_data['fabnet_addr'], \
+                        force_sw_upgrade = not is_upgrade)
                 
                 if n_data.has_key('config'):
                     mgmt_api.set_config(session_id, node_name, n_data['config'])
-        print('====             Done              ====')
+        print('=========             Done              =========')
 
         mgmt_api.logout(session_id)
     except Exception, err:
-        print('====         Reset cluster         ====')
-        reset_cluster(mgmt_db_url)
-        print('====             Done              ====')
+        if not is_upgrade:
+            print('=========         Reset cluster         =========')
+            reset_cluster(mgmt_db_url)
+            print('=========             Done              =========')
         raise err
 
 def save_mgmt_db_url(mgmt_db_url):
@@ -177,6 +194,9 @@ if __name__ == '__main__':
                     help="path to management key storage (expected for secured installation)")
     parser.add_option("-d", "--mgmt-db", dest="db_str",
                     help="management database URI (save into $HOME/%s)"%MGMT_CONFIG_FILE)
+    parser.add_option("-u", "--upgrade", dest="upgrade",
+                    action="store_true", default=False,
+                    help="upgrade existing cluster")
 
     (options, args) = parser.parse_args()
 
@@ -188,7 +208,13 @@ if __name__ == '__main__':
         if not os.path.exists(options.yaml_path):
             raise Exception('YAML file does not found at %s'%options.yaml_path)
 
-        if options.ks_path:
+        if options.upgrade:
+            if options.ks_path:
+                raise Exception('Management key storage can not be replaced!')
+
+            options.ks_path = True
+            ks_pwd = getpass.getpass('Management key storage password: ')
+        elif options.ks_path:
             if not os.path.exists(options.ks_path):
                 raise Exception('Management key storage does not found at %s'%options.ks_path)
             ks_pwd = getpass.getpass('Management key storage password: ')
@@ -198,7 +224,7 @@ if __name__ == '__main__':
         
         mgmt_db_url = options.db_str or 'localhost'
 
-        install_cluster(mgmt_db_url, options.yaml_path, options.ks_path, ks_pwd)
+        install_cluster(mgmt_db_url, options.yaml_path, options.ks_path, ks_pwd, options.upgrade)
 
         save_mgmt_db_url(mgmt_db_url)
     except Exception, err:
