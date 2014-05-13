@@ -151,9 +151,10 @@ def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''
 
         print('=========   Fabnet nodes installation   =========')
         nodes = mgmt_api.show_nodes(session_id, filters={'physical': False})
+        fb_nodes = [node[DBK_ID] for node in nodes] 
         for node in nodes_list:
             for node_name, n_data in node.items():
-                if node_host in ph_nodes:
+                if node_name in fb_nodes:
                     print('  ** fabnet node %s is already installed!'%node_name)
                     continue
 
