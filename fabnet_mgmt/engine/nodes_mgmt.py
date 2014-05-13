@@ -303,7 +303,7 @@ def __upgrade_node(engine, node):
     if not release:
         return
     release_url = release[DBK_RELEASE_URL]
-    cmd = '/opt/blik/fabnet/bin/pkg-install %s'%release_url
+    cmd = 'sudo /opt/blik/fabnet/bin/pkg-install %s'%release_url
     cli_inst.safe_exec(cmd)
 
 def __get_nodes_objs(engine, nodes_list):
