@@ -8,7 +8,7 @@ import tempfile
 from fabnet_mgmt.engine.decorators import MgmtApiMethod
 from fabnet_mgmt.engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
         USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, DBK_KS_PWD_ENCR, \
-        DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, DBK_NODEADDR, STATUS_UP, STATUS_DOWN
+        DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, DBK_NODEADDR, STATUS_UP, STATUS_DOWN, DBK_UPGRADE_FLAG
 from fabnet_mgmt.engine.exceptions import MEAlreadyExistsException, \
         MEOperException, MENotFoundException, MEBadURLException 
 
@@ -138,7 +138,7 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
     try:
         sftp.put(FABNET_INSTALLER_PATH, '/home/%s/installer.py'%USER_NAME)
 
-        cli_inst.safe_exec('python /home/%s/installer.py %s'%(USER_NAME, release_url))
+        cli_inst.safe_exec('python /home/%s/installer.py %s --force'%(USER_NAME, release_url))
         cli_inst.safe_exec('mkdir -p %s'%home_dir_name)
         if ks_path:
             #save CA certs
@@ -292,7 +292,19 @@ def __stop_node(engine, node):
     if rcode == 20:
         return 'Node %s is already stopped'%node[DBK_ID]
     raise MEOperException('\n# %s\n%s\nERROR! Node does not stopped!'%(cmd, cli_inst.output))
-    
+
+def __upgrade_node(engine, node):
+    ssh_cli = engine.get_ssh_client()
+    ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
+    cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
+
+    release = engine.db_mgr().get_release(node[DBK_NODETYPE])
+    if not release:
+        return
+    release_url = release[DBK_RELEASE_URL]
+    cmd = '/opt/blik/fabnet/bin/pkg-install %s'%release_url
+    cli_inst.safe_exec(cmd)
+
 def __get_nodes_objs(engine, nodes_list):
     nodes_objs = []
     if nodes_list:
@@ -311,6 +323,9 @@ def start_nodes(engine, session_id, nodes_list=[]):
     nodes_objs = __get_nodes_objs(engine, nodes_list)
     ret_str = ''
     for node_obj in nodes_objs:
+        if node_obj.get(DBK_UPGRADE_FLAG, False):
+            __upgrade_node(engine, node_obj)
+            
         config = engine.db_mgr().get_config(node_obj[DBK_ID], ret_all=True)
         up_nodes = engine.db_mgr().get_fabnet_nodes({DBK_STATUS: STATUS_UP})
         up_nodes.limit(1)
@@ -328,6 +343,7 @@ def start_nodes(engine, session_id, nodes_list=[]):
         ret_str += '\n'
 
         node_obj[DBK_STATUS] = STATUS_UP
+        node_obj[DBK_UPGRADE_FLAG] = False
         engine.db_mgr().update_fabnet_node(node_obj)
     return ret_str.strip()
 
@@ -341,6 +357,11 @@ def stop_nodes(engine, session_id, nodes_list=[]):
 
         node_obj[DBK_STATUS] = STATUS_DOWN
         engine.db_mgr().update_fabnet_node(node_obj)
+
+@MgmtApiMethod(ROLE_SS)
+def reload_nodes(self, session_id, nodes_list=[]):
+    pass
+
 
 @MgmtApiMethod(ROLE_RO)
 def get_nodes_stat(engine, session_id, nodes_list=[]):
@@ -356,9 +377,12 @@ def get_nodes_stat(engine, session_id, nodes_list=[]):
 
 
 @MgmtApiMethod(ROLE_SS)
-def reload_nodes(self, session_id, nodes_list=[]):
-    pass
+def software_upgrade(engine, session_id):
+    nodes = engine.db_mgr().get_fabnet_nodes(filter_map={DBK_STATUS: STATUS_DOWN})
+    for node in nodes:
+        node[DBK_UPGRADE_FLAG] = True
+        engine.db_mgr().update_fabnet_node(node)
 
-@MgmtApiMethod(ROLE_SS)
-def upgrade_nodes(self, session_id):
-    pass
+    engine.db_mgr().set_config(None, {DBK_UPGRADE_FLAG: True})
+
+

@@ -46,7 +46,7 @@ KS_PATH_2 = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'ks/test.p1
 KS_PASSWD = 'node'
 
 
-class TestMonitorNode(unittest.TestCase):
+class TestMgmtNode(unittest.TestCase):
     def create_net(self, nodes_count):
         global PROCESSES
         global ADDRESSES
@@ -71,7 +71,7 @@ class TestMonitorNode(unittest.TestCase):
 
             logger.warning('{SNP} STARTING NODE %s'%address)
             if n_node == 'init-fabnet':
-                ntype = 'Monitor'
+                ntype = 'MGMT'
                 Config.load(os.path.join(home, 'fabnet.conf'))
                 Config.update_config({'db_engine': 'mongodb', \
                         'db_conn_str': "mongodb://127.0.0.1/%s"%MONITOR_DB,\
@@ -179,6 +179,11 @@ class TestMonitorNode(unittest.TestCase):
         client = MongoClient("mongodb://127.0.0.1/%s"%MONITOR_DB)
         mgmt_db = client.get_default_database()
 
+        up_oper = mgmt_db[DBK_NOTIFICATIONS].find({DBK_NOTIFY_TOPIC: 'UpgradeNodeOperation call'})
+        self.assertEqual(up_oper.count(), 0)
+        #upgrade cluster request...
+        mgmt_db[DBK_CLUSTER_CONFIG].insert({DBK_NODE_NAME: None, DBK_CONFIG_PARAM: DBK_UPGRADE_FLAG, DBK_CONFIG_VALUE: True})
+
         events = mgmt_db[DBK_NOTIFICATIONS].find({DBK_NOTIFY_TOPIC: 'NodeUp'})
         self.assertEqual(events.count(), 3)
 
@@ -191,6 +196,9 @@ class TestMonitorNode(unittest.TestCase):
         ret_code, msg = client.call(ADDRESSES[0], packet_obj)
         self.assertEqual(ret_code, 0, msg)
         time.sleep(2)
+
+        up_oper = mgmt_db[DBK_NOTIFICATIONS].find({DBK_NOTIFY_TOPIC: 'UpgradeNodeOperation call'})
+        self.assertEqual(up_oper.count(), 1)
 
         nodes_info = mgmt_db[DBK_NODES].find({})
         self.assertEqual(nodes_info.count(), 4)

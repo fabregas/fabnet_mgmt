@@ -1,2 +1,4 @@
 operators:
-    Monitor: fabnet_mgmt.operator.mgmt_operator.ManagementOperator
+    MGMT:
+        object_path: fabnet_mgmt.operator.mgmt_operator.ManagementOperator
+        version: '0.1'

@@ -26,6 +26,7 @@ from fabnet.core.operator import Operator
 from fabnet.core.config import Config
 from fabnet.utils.logger import oper_logger as logger
 from fabnet.utils.internal import total_seconds
+from fabnet.core.constants import ET_ALERT, ET_INFO
 
 from fabnet_mgmt.operator.constants import DEFAULT_MONITOR_CONFIG
 from fabnet_mgmt.operator.topology_cognition_mon import TopologyCognitionMon
@@ -34,7 +35,7 @@ from fabnet_mgmt.operator.monitor_dbapi import PostgresDBAPI, AbstractDBAPI
 from fabnet_mgmt.engine.mgmt_db import  MgmtDatabaseManager
 from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
 from fabnet_mgmt.engine.constants import STATUS_UP, STATUS_DOWN, \
-        DBK_UPPERS, DBK_SUPERIORS, DBK_NODEADDR 
+        DBK_UPPERS, DBK_SUPERIORS, DBK_NODEADDR, DBK_RELEASE_URL, DBK_ID, DBK_UPGRADE_FLAG 
 from fabnet_mgmt.cli.base_cli import BaseMgmtCLIHandler
 from fabnet_mgmt.rest.rest_service import RESTHandler 
 
@@ -183,10 +184,25 @@ class ManagementOperator(Operator):
         ret_nodes = {}
         nodes = self.__db_api.get_fabnet_nodes()
         for node in nodes:
+            if not ret_nodes.has_key(DBK_NODEADDR):
+                continue
             node_info = {'uppers': node.get(DBK_UPPERS, []),
                          'superiors': node.get(DBK_SUPERIORS, [])}
             ret_nodes[node[DBK_NODEADDR]] = node_info
         return ret_nodes
+
+    def get_releases(self):
+        releases = {}
+        db_rels = self.__db_api.get_releases()
+        for db_rel in db_rels:
+            releases[db_rel[DBK_ID].lower()] = db_rel[DBK_RELEASE_URL]
+        return releases
+
+    def clear_upgrade_flag(self):
+        self.__db_api.set_config(None, {DBK_UPGRADE_FLAG: False})
+
+    def is_need_upgrade(self):
+        return self.__db_api.get_config_param(None, DBK_UPGRADE_FLAG)
 
 
 class CollectNodeStatisticsThread(threading.Thread):
@@ -207,6 +223,7 @@ class CollectNodeStatisticsThread(threading.Thread):
                 logger.debug('Collecting %s nodes statistic...'%self.check_status)
                 nodeaddrs = self.operator.get_nodes_list(self.check_status)
 
+                last_up_node = None
                 for nodeaddr in nodeaddrs:
                     logger.debug('Get statistic from %s'%nodeaddr)
 
@@ -216,11 +233,24 @@ class CollectNodeStatisticsThread(threading.Thread):
                         logger.warning('Node with address %s does not response... Details: %s'%(nodeaddr, ret_packet))
                         self.operator.change_node_status(nodeaddr, STATUS_DOWN)
                     elif ret_packet.ret_code == 0:
+                        last_up_node = nodeaddr
                         stat = ret_packet.ret_parameters
                         self.operator.update_node_stat(nodeaddr, stat)
 
                 dt = total_seconds(datetime.now() - t0)
                 logger.info('Nodes (with status=%s) stat is collected. Processed secs: %s'%(self.check_status, dt))
+
+                if self.check_status == STATUS_UP and last_up_node and self.operator.is_need_upgrade():
+                    releases = self.operator.get_releases()
+                    packet_obj = FabnetPacketRequest(method='UpgradeNode', parameters={'releases': releases})
+                    rcode, rmsg = self.client.call(last_up_node, packet_obj)
+                    if rcode:
+                        self.notify(last_up_node, ET_ALERT, 'UpgradeNodeOperation call', rmsg)
+                    else:
+                        self.operator.clear_upgrade_flag()
+                        self.notify(last_up_node, ET_INFO, 'UpgradeNodeOperation call', 'UpgradeNode operation is started over fabnet')
+
+                dt = total_seconds(datetime.now() - t0)
             except Exception, err:
                 logger.error(str(err))
             finally:
@@ -233,6 +263,15 @@ class CollectNodeStatisticsThread(threading.Thread):
                     time.sleep(wait_time - int(wait_time))
 
         logger.info('Thread stopped!')
+
+    def notify(self, nodeaddr, event_type, event_topic, event_message):
+        packet_obj = FabnetPacketRequest(method='NotifyOperation', \
+                parameters={'event_type':str(event_type), \
+                'event_message':str(event_message), 'event_topic': str(event_topic), \
+                'event_provider': self.operator.get_self_address()})
+        rcode, rmsg = self.client.call(nodeaddr, packet_obj) 
+        if rcode:
+            logger.error('Can not call NotifyOperation: %s'%rmsg)
 
     def stop(self):
         self.stopped.set()

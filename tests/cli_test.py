@@ -676,6 +676,9 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('help stop-node', 'stopnode')
             self._cmd('stop-node unkn-node', 'Error! [50] Node "unkn-node" does not found!')
             self._cmd('stop-node test_node01', 'stopped')
+
+            self._cmd('help software-upgrade', 'softup')
+            self._cmd('software-upgrade', 'started')
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)

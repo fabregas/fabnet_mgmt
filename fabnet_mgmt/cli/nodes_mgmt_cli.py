@@ -259,6 +259,18 @@ class NodesMgmtCLIHandler:
         else:
             self.writeresponse('Node is stopped')
 
+    @cli_command(32, 'software-upgrade', 'software_upgrade', 'softup')
+    def command_soft_upgrade(self, params):
+        '''
+        Schedule software upgrade over fabnet network
+        This command start software upgrade process on fabnet network asynchronously
+        All stopped nodes will be upgraded on next start process
+        '''
+        self.mgmtManagementAPI.software_upgrade(self.session_id)
+        self.writeresponse('Software upgrade process is started over fabnet')
+        self.writeresponse('All stopped nodes will be upgraded on next start process')
+
+
     @cli_command(33, 'fabnet-stat', 'get_nodes_stat', 'fabnetstat', 'fstat')
     def command_fabnet_stat(self, params):
         '''
@@ -281,12 +293,18 @@ class NodesMgmtCLIHandler:
                         'FA '.center(6), 'MEMORY (MB)'.center(12), 'UPTIME'.center(10) ))
         self.writeresponse('-'*100)
 
+        is_notice = False
         for node in sorted(stats.keys()):
             n_stat = stats[node]
             s_i = n_stat.get('SystemInfo', {})
             ver = s_i.get('node_version', 'unknown')
             if ver == 'unknown':
                 ver = s_i.get('core_version', 'unknown')
+            else:
+                i_ver = s_i.get('installed_version', 'unknown')
+                if i_ver != ver:
+                    ver += '*'
+                    is_notice = True
 
             uptime = s_i.get('uptime', '-').split('.')[0]
             la = '%s/%s/%s'%(s_i.get('loadavg_5', '-'), s_i.get('loadavg_10', '-'), s_i.get('loadavg_15', '-'))
@@ -318,6 +336,8 @@ class NodesMgmtCLIHandler:
             self.writeresponse('%-15s %s %s %s %s %s %s %s %s'%(node, ver.center(12), \
                         nb.center(6), la.center(16), ow.center(6), opw.center(6), \
                         fa.center(6), mem.center(12), uptime.center(10) ))
+        if is_notice:
+            self.writeresponse(' * - newer version is installed (require reboot)')
 
     @cli_command(34, 'operations-stat', 'get_nodes_stat', 'opstat', 'ostat')
     def command_operations_stat(self, params):

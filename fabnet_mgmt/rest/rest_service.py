@@ -59,7 +59,7 @@ class RESTHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     'startNodes': 'start_nodes', \
                     'stopNodes': 'stop_nodes', \
                     'reloadNodes': 'reload_nodes', \
-                    'upgradeNodes': 'upgrade_nodes'
+                    'softwareUpgrade': 'software_upgrade'
                     },
             'DELETE': {'removeUser': 'remove_user', \
                     'removePhysicalNode': 'remove_physical_node', \

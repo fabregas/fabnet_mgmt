@@ -216,6 +216,11 @@ class MgmtDatabaseManager:
 
         return ret_config
 
+    def get_config_param(self, node_name, param):
+        config = self.__mgmt_db[DBK_CLUSTER_CONFIG].find_one({DBK_NODE_NAME: node_name, DBK_CONFIG_PARAM:param})
+        if not config:
+            return None
+        return config[DBK_CONFIG_VALUE]
 
     def set_release(self, node_type, release_url, version):
         found = self.__mgmt_db[DBK_RELEASES].find_one({DBK_ID: node_type})
@@ -231,6 +236,8 @@ class MgmtDatabaseManager:
     def get_releases(self):
         return self.__mgmt_db[DBK_RELEASES].find({})
 
+    def get_release(self, node_type):
+        return self.__mgmt_db[DBK_RELEASES].find_one({DBK_ID: node_type})
  
     def get_nodes_list(self, status):
         recs = self.__mgmt_db[DBK_NODES].find({DBK_STATUS: status}, [DBK_NODEADDR])

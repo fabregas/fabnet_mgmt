@@ -360,6 +360,7 @@ class ManagementEngineAPI(object):
         return cert, pri
 
 
+
 @MgmtApiMethod(ROLE_RO)
 def get_config(engine, session_id, node_name, ret_all=False):
     return engine.db_mgr().get_config(node_name, ret_all)
