@@ -240,15 +240,20 @@ class CollectNodeStatisticsThread(threading.Thread):
                 dt = total_seconds(datetime.now() - t0)
                 logger.info('Nodes (with status=%s) stat is collected. Processed secs: %s'%(self.check_status, dt))
 
-                if self.check_status == STATUS_UP and last_up_node and self.operator.is_need_upgrade():
-                    releases = self.operator.get_releases()
-                    packet_obj = FabnetPacketRequest(method='UpgradeNode', parameters={'releases': releases})
-                    rcode, rmsg = self.client.call(last_up_node, packet_obj)
-                    if rcode:
-                        self.notify(last_up_node, ET_ALERT, 'UpgradeNodeOperation call', rmsg)
+                if self.check_status == STATUS_UP and last_up_node:
+                    need = self.operator.is_need_upgrade()
+                    if not need:
+                        pass
                     else:
-                        self.operator.clear_upgrade_flag()
-                        self.notify(last_up_node, ET_INFO, 'UpgradeNodeOperation call', 'UpgradeNode operation is started over fabnet')
+                        force = True if need == 'need_force' else False
+                        releases = self.operator.get_releases()
+                        packet_obj = FabnetPacketRequest(method='UpgradeNode', parameters={'releases': releases, 'force': force})
+                        rcode, rmsg = self.client.call(last_up_node, packet_obj)
+                        if rcode:
+                            self.notify(last_up_node, ET_ALERT, 'UpgradeNodeOperation call', rmsg)
+                        else:
+                            self.operator.clear_upgrade_flag()
+                            self.notify(last_up_node, ET_INFO, 'UpgradeNodeOperation call', 'UpgradeNode operation is started over fabnet')
 
                 dt = total_seconds(datetime.now() - t0)
             except Exception, err:

@@ -261,12 +261,15 @@ class NodesMgmtCLIHandler:
 
     @cli_command(32, 'software-upgrade', 'software_upgrade', 'softup')
     def command_soft_upgrade(self, params):
-        '''
+        '''[--force]
         Schedule software upgrade over fabnet network
         This command start software upgrade process on fabnet network asynchronously
         All stopped nodes will be upgraded on next start process
         '''
-        self.mgmtManagementAPI.software_upgrade(self.session_id)
+        if params and params[0] != '--force':
+            raise MEInvalidArgException('Invalid parameter "%s"'%params[0])
+
+        self.mgmtManagementAPI.software_upgrade(self.session_id, '--force' in params)
         self.writeresponse('Software upgrade process is started over fabnet')
         self.writeresponse('All stopped nodes will be upgraded on next start process')
 

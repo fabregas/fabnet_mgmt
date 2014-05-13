@@ -378,12 +378,12 @@ def get_nodes_stat(engine, session_id, nodes_list=[]):
 
 
 @MgmtApiMethod(ROLE_SS)
-def software_upgrade(engine, session_id):
+def software_upgrade(engine, session_id, force=False):
     nodes = engine.db_mgr().get_fabnet_nodes(filter_map={DBK_STATUS: STATUS_DOWN})
     for node in nodes:
         node[DBK_UPGRADE_FLAG] = True
         engine.db_mgr().update_fabnet_node(node)
 
-    engine.db_mgr().set_config(None, {DBK_UPGRADE_FLAG: True})
+    engine.db_mgr().set_config(None, {DBK_UPGRADE_FLAG: 'need_force' if force else 'need'})
 
 
