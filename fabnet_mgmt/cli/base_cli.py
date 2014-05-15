@@ -16,6 +16,10 @@ from fabnet_mgmt.cli.decorators import *
 from fabnet_mgmt.cli.telnetserver.threaded import TelnetHandler
 from fabnet_mgmt.cli.users_mgmt_cli import * 
 from fabnet_mgmt.cli.nodes_mgmt_cli import * 
+from fabnet_mgmt.engine.management_engine_api import load_plugins
+
+#install plugins
+load_plugins('cli_plugins')
 
 class BaseMgmtCLIHandler(TelnetHandler):
     PROMPT = 'mgmt-cli> '

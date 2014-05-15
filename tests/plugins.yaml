@@ -2,3 +2,12 @@ operators:
     MGMT:
         object_path: fabnet_mgmt.operator.mgmt_operator.ManagementOperator
         version: '0.1'
+
+mgmt_plugins:
+  DHT:
+    api_plugins:
+        - test_plugins.test_api
+    cli_plugins:
+        - test_plugins.test_cli
+    rest_plugins:
+        - test_plugins.test_rest

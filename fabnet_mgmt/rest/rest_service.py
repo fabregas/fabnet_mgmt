@@ -68,6 +68,10 @@ class RESTHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             }
     
     @classmethod
+    def add_method(cls, http_method, rest_method_name, api_method_name):
+        cls.METHODS_MAP[http_method][rest_method_name] = api_method_name
+
+    @classmethod
     def setup_mgmt_api(cls, mgmt_api):
         cls.__mgmt_api = mgmt_api
 
@@ -194,3 +198,7 @@ class RESTHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
 
 
+from fabnet_mgmt.engine.management_engine_api import load_plugins
+
+#install plugins
+load_plugins('rest_plugins')

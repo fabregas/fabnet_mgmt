@@ -7,6 +7,7 @@ import threading
 import json
 import random
 import base64
+os.environ['FABNET_PLUGINS_CONF'] = 'tests/plugins.yaml'
 
 from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
 from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
@@ -133,6 +134,10 @@ class TestManagementEngineAPI(unittest.TestCase):
         key = mgmt_api.get_ssh_client().get_pubkey()
         TestManagementEngineAPI.key = key
         self.assertTrue(len(key)>0)
+
+        #check plugins
+        ret = mgmt_api.test_api_method(ma_session_id, {'test': 0})
+        self.assertEqual(ret, {'test': 0})
 
         mgmt_api.logout(ma_session_id)
 

@@ -35,10 +35,31 @@ from fabnet_ca.openssl import Openssl
 
 from fabnet.core.constants import NODE_CERTIFICATE
 from fabnet.core.key_storage import KeyStorage
+from fabnet.utils.logger import logger
+from fabnet.utils.plugins import PluginsManager
 
 import paramiko
 from M2Crypto import RSA, BIO, EVP
 
+
+def load_plugins(pl_type):
+    section = PluginsManager.get_section('mgmt_plugins')
+    for n_type, data in section.items():
+        if pl_type not in data:
+            continue
+        logger.info('Loading %s for %s node type' % (pl_type, n_type))
+
+        plugins = data[pl_type]
+        if type(plugins) != list:
+            plugins = [plugins]
+        for module in plugins:
+            try:
+                exec('from %s import *'%module)
+            except Exception, err:
+                logger.error('Can not load %s plugin! Details: %s'%(module, err))
+
+#install plugins
+load_plugins('api_plugins')
 
 class MockFileObj:
     def __init__(self, data):

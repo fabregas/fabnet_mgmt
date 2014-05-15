@@ -8,6 +8,7 @@ import json
 import random
 import base64
 import BaseHTTPServer
+os.environ['FABNET_PLUGINS_CONF'] = 'tests/plugins.yaml'
 
 from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
 from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
@@ -101,6 +102,10 @@ class RestAPITest(unittest.TestCase):
         key = api.getSSHKey()
         self.assertTrue(len(key)>0)
         RestAPITest.key = key
+
+        #test plugins
+        data = api.testPluginMethod('data str')
+        self.assertEqual('data str', data)
 
     def test01_oper_with_ks(self):
         cl = MongoClient('localhost')

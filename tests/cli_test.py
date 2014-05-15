@@ -8,6 +8,7 @@ import random
 import base64
 import socket
 import sys
+os.environ['FABNET_PLUGINS_CONF'] = 'tests/plugins.yaml'
 
 from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
 from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI, MockFileObj
@@ -679,12 +680,15 @@ class TestMgmtCLI(unittest.TestCase):
 
             self._cmd('help software-upgrade', 'softup')
             self._cmd('software-upgrade', 'started')
+
+            #test plugins
+            self._cmd('help test-plugin-operation', 'testplugins')
+            self._cmd('test-plugin-operation \'some message\'', 'RESPONSE: some message')
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
             cli.close(force=True)
             TestMgmtCLI.CLI = None
-
 
     def test09_nodesmgmt_remove_nodes(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
