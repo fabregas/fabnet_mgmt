@@ -202,7 +202,147 @@ class TestMgmtCLI(unittest.TestCase):
         if TestMgmtCLI.thread:
             TestMgmtCLI.thread.stop()
 
-    def test01_incorrect_auth(self):
+
+    def _cmd(self, cmd, in_l=None, not_in_l=None, expect=PROMT):
+        if in_l:
+            if type(in_l) not in [list, tuple]:
+                in_expr_list = [in_l]
+            else:
+                in_expr_list = in_l
+        else:
+            in_expr_list = []
+
+        if not_in_l:
+            if type(not_in_l) not in [list, tuple]:
+                not_in_expr_list = [not_in_l]
+            else:
+                not_in_expr_list = not_in_l
+        else:
+            not_in_expr_list = []
+
+        cli =  TestMgmtCLI.CLI
+        cli.sendline(cmd)
+        cli.expect(expect)
+        for val in in_expr_list:
+            self.assertTrue(val in cli.before, 'Expr "%s" not in "%s"'%(val, cli.before))
+        for val in not_in_expr_list:
+            self.assertTrue(val not in cli.before, 'Expr "%s" in "%s"'%(val, cli.before))
+        return cli.before
+
+
+    def test01_create_mgmt_user(self):
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('admin')
+            cli.expect('Password:')
+            cli.sendline('admin')
+            if self.IS_SECURED:
+                cli.expect('key storage password:')
+                cli.sendline(KS_PASSWD)
+            cli.expect(PROMT)
+
+            cli.sendline('create-user nodes-admin readonly nodesmanage configure startstop')
+            cli.expect('password:')
+            cli.sendline('test')
+            cli.expect('password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('nodes-admin')
+            cli.expect('Password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+
+            TestMgmtCLI.CLI = cli
+
+            self._cmd('help show-releases', ['sh-releases'])
+            self._cmd('show-releases', [], ['Error', 'error'])
+
+            self._cmd('help set-release', ['software release'])
+            self._cmd('set-release', 'Usage: SET-RELEASE <node type> <release url>')
+            self._cmd('set-release test-node-type', 'Usage: SET-RELEASE <node type> <release url>')
+            self._cmd('set-release test-node-type test', 'Bad release URL')
+            self._cmd('set-release test-node-type file://%s/data/invalid_release'%PATH, 'File is not a zip file')
+            self._cmd('set-release test-node-type file://%s/data/novers_release.zip'%PATH, 'installed')
+            self._cmd('set-release DHT file://%s/data/valid_release.zip'%PATH, 'installed')
+            self._cmd('set-release MGMT file://%s/data/valid_release.zip'%PATH, 'installed')
+
+            self._cmd('show-releases', ['unknown', '0.9a-2412'], ['Error', 'error'])
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+            TestMgmtCLI.CLI = None
+
+
+    def test06_nodesmgmt_installnodes(self):
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('nodes-admin')
+            cli.expect('Password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+
+            TestMgmtCLI.CLI = cli
+            MockedSFTP.get_files()
+            MockedSSHClient.clear_logs()
+
+            self._cmd('i-pnode test_hostname.com:322 test_user file:/%s/ks/key.pem'%PATH, 'configured!')
+
+            for i, (node_type, node_name) in enumerate(TestMgmtCLI.NODES):
+                self._cmd('install-node test_hostname.com %s %s externa_addr_test_node:222%s'% \
+                        (node_type, node_name,i), 'installed')
+            self._cmd('shnodes', [i[1] for i in TestMgmtCLI.NODES])
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+            TestMgmtCLI.CLI = None
+
+
+    def test09_nodesmgmt_remove_nodes(self):
+        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
+        cli.logfile_read = sys.stdout
+        try:
+            cli.expect('Username:')
+            cli.sendline('nodes-admin')
+            cli.expect('Password:')
+            cli.sendline('test')
+            cli.expect(PROMT)
+
+            TestMgmtCLI.CLI = cli
+            
+            for i, (node_type, node_name) in enumerate(TestMgmtCLI.NODES):
+                self._cmd('rm-node %s --force', 'removed'%node_name)
+            self._cmd('rm-pnode test_hostname.com --force', 'removed')
+
+            self._cmd('help')
+        finally:
+            cli.sendline('exit')
+            cli.expect(pexpect.EOF)
+            cli.close(force=True)
+            TestMgmtCLI.CLI = None
+
+
+
+
+
+
+
+class TestMgmtCLIBase(TestMgmtCLI):
+    def test02_incorrect_auth(self):
         def check(username, pwd):
             cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
             cli.logfile_read = sys.stdout
@@ -218,29 +358,6 @@ class TestMgmtCLI(unittest.TestCase):
         check('testuser', 'testpwd')
         check('admin', 'testpwd')
         check('testuser', 'admin')
-
-        def check_ks_pwd(pwd, exp_err=True):
-            cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
-            cli.logfile_read = sys.stdout
-            try:
-                cli.expect('Username:')
-                cli.sendline('admin')
-                cli.expect('Password:')
-                cli.sendline('admin')
-                cli.expect('key storage password:')
-                cli.sendline(pwd)
-                if exp_err:
-                    cli.expect('ERROR!')
-                else:
-                    cli.expect(PROMT)
-                    cli.sendline('exit')
-                cli.expect(pexpect.EOF)
-            finally:
-                cli.close(force=True)
-
-        if self.IS_SECURED:
-            check_ks_pwd('invalid')
-            check_ks_pwd(KS_PASSWD, False)
 
     def test02_usersmgmt(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
@@ -269,33 +386,6 @@ class TestMgmtCLI(unittest.TestCase):
         finally:
             cli.close(force=True)
             TestMgmtCLI.CLI = None
-
-    def _cmd(self, cmd, in_l=None, not_in_l=None, expect=PROMT):
-        if in_l:
-            if type(in_l) not in [list, tuple]:
-                in_expr_list = [in_l]
-            else:
-                in_expr_list = in_l
-        else:
-            in_expr_list = []
-
-        if not_in_l:
-            if type(not_in_l) not in [list, tuple]:
-                not_in_expr_list = [not_in_l]
-            else:
-                not_in_expr_list = not_in_l
-        else:
-            not_in_expr_list = []
-
-        cli =  TestMgmtCLI.CLI
-        cli.sendline(cmd)
-        cli.expect(expect)
-        for val in in_expr_list:
-            self.assertTrue(val in cli.before, 'Expr "%s" not in "%s"'%(val, cli.before))
-        for val in not_in_expr_list:
-            self.assertTrue(val not in cli.before, 'Expr "%s" in "%s"'%(val, cli.before))
-        return cli.before
-
 
     def show_roles_test(self, cli):
         self._cmd('help show-roles', ['shroles', 'shr'])
@@ -456,56 +546,6 @@ class TestMgmtCLI(unittest.TestCase):
             cli.expect(pexpect.EOF)
             cli.close(force=True)
 
-    def test05_nodesmgmt_sw_releases(self):
-        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
-        cli.logfile_read = sys.stdout
-        try:
-            cli.expect('Username:')
-            cli.sendline('admin')
-            cli.expect('Password:')
-            cli.sendline('test123')
-            cli.expect(PROMT)
-
-            cli.sendline('create-user nodes-admin readonly nodesmanage configure startstop')
-            cli.expect('password:')
-            cli.sendline('test')
-            cli.expect('password:')
-            cli.sendline('test')
-            cli.expect(PROMT)
-        finally:
-            cli.sendline('exit')
-            cli.expect(pexpect.EOF)
-            cli.close(force=True)
-
-        cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
-        cli.logfile_read = sys.stdout
-        try:
-            cli.expect('Username:')
-            cli.sendline('nodes-admin')
-            cli.expect('Password:')
-            cli.sendline('test')
-            cli.expect(PROMT)
-
-            TestMgmtCLI.CLI = cli
-
-            self._cmd('help show-releases', ['sh-releases'])
-            self._cmd('show-releases', [], ['Error', 'error'])
-
-            self._cmd('help set-release', ['software release'])
-            self._cmd('set-release', 'Usage: SET-RELEASE <node type> <release url>')
-            self._cmd('set-release test-node-type', 'Usage: SET-RELEASE <node type> <release url>')
-            self._cmd('set-release test-node-type test', 'Bad release URL')
-            self._cmd('set-release test-node-type file://%s/data/invalid_release'%PATH, 'File is not a zip file')
-            self._cmd('set-release test-node-type file://%s/data/novers_release.zip'%PATH, 'installed')
-            self._cmd('set-release DHT file://%s/data/valid_release.zip'%PATH, 'installed')
-            self._cmd('set-release MGMT file://%s/data/valid_release.zip'%PATH, 'installed')
-
-            self._cmd('show-releases', ['unknown', '0.9a-2412'], ['Error', 'error'])
-        finally:
-            cli.sendline('exit')
-            cli.expect(pexpect.EOF)
-            cli.close(force=True)
-            TestMgmtCLI.CLI = None
 
     def test06_nodesmgmt_installnodes(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
@@ -519,6 +559,7 @@ class TestMgmtCLI(unittest.TestCase):
 
             TestMgmtCLI.CLI = cli
             MockedSFTP.get_files()
+            MockedSSHClient.clear_logs()
             self._cmd('help install-physical-node', 'i-pnode') 
             self._cmd('install-physical-node', 'Usage: INSTALL-PHYSICAL-NODE <node hostname>[:<ssh port>] <ssh user name> --pwd | <ssh key url>') 
 
@@ -584,6 +625,7 @@ class TestMgmtCLI(unittest.TestCase):
             cli.expect(pexpect.EOF)
             cli.close(force=True)
             TestMgmtCLI.CLI = None
+
 
     def test07_nodesmgmt_show_nodes(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
@@ -678,7 +720,7 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('start-node test_node[00-01]', ['Node "test_node00" does not found!'])
             self._cmd('start-node test_node[01-02]', ['Starting', 'Done'], ['Error'])
 
-            self.assertEqual(len(MockedSSHClient.INPUT_LOG), 1 if self.IS_SECURED else 0)
+            self.assertEqual(len(MockedSSHClient.INPUT_LOG), 3 if self.IS_SECURED else 0)
             
             self._cmd('stop-node', 'Usage: STOP-NODE')
             self._cmd('help stop-node', 'stopnode')
@@ -763,9 +805,13 @@ class TestMgmtCLI(unittest.TestCase):
             cli.close(force=True)
             TestMgmtCLI.CLI = None
 
-class SecuredTestMgmtCLI(TestMgmtCLI):
+
+class SecuredTestMgmtCLI(TestMgmtCLIBase):
     IS_SECURED = True
 
 if __name__ == '__main__':
-    unittest.main()
-
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(TestMgmtCLIBase))
+    suite.addTest(unittest.makeSuite(SecuredTestMgmtCLI))
+    runner = unittest.TextTestRunner()
+    runner.run(suite)
