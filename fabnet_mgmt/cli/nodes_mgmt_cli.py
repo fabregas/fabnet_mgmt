@@ -239,11 +239,7 @@ class NodesMgmtCLIHandler:
         This command starts installed fabnet node
         '''
         node_name = params[0]
-        resp = self.mgmtManagementAPI.start_nodes(self.session_id, [node_name])
-        if resp:
-            self.writeresponse(resp)
-        else:
-            self.writeresponse('Node is started')
+        self.mgmtManagementAPI.start_nodes(self.session_id, [node_name], log=self)
 
     @cli_command(31, 'stop-node', 'stop_nodes', 'stopnode', validator=(str,))
     def command_stop_node(self, params):
@@ -252,12 +248,8 @@ class NodesMgmtCLIHandler:
         This command stops installed fabnet node
         '''
         node_name = params[0]
-        resp = self.mgmtManagementAPI.stop_nodes(self.session_id, [node_name])
+        self.mgmtManagementAPI.stop_nodes(self.session_id, [node_name], log=self)
 
-        if resp:
-            self.writeresponse(resp)
-        else:
-            self.writeresponse('Node is stopped')
 
     @cli_command(32, 'software-upgrade', 'software_upgrade', 'softup')
     def command_soft_upgrade(self, params):
@@ -269,7 +261,7 @@ class NodesMgmtCLIHandler:
         if params and params[0] != '--force':
             raise MEInvalidArgException('Invalid parameter "%s"'%params[0])
 
-        self.mgmtManagementAPI.software_upgrade(self.session_id, '--force' in params)
+        self.mgmtManagementAPI.software_upgrade(self.session_id, '--force' in params, log=self)
         self.writeresponse('Software upgrade process is started over fabnet')
         self.writeresponse('All stopped nodes will be upgraded on next start process')
 

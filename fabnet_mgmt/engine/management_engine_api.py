@@ -33,6 +33,8 @@ from fabnet_ca.ca_service import CAService
 from fabnet_ca.cert_req_generator import generate_keys, gen_request
 from fabnet_ca.openssl import Openssl
 
+from fabnet.core.fri_client import FriClient
+from fabnet.core.fri_base import FabnetPacketRequest
 from fabnet.core.constants import NODE_CERTIFICATE
 from fabnet.core.key_storage import KeyStorage
 from fabnet.utils.logger import logger
@@ -182,6 +184,7 @@ class ManagementEngineAPI(object):
         self._admin_ks = None
         self.self_node_address = self_node_addr
         self.__check_configuration()
+        self.__fri_client = FriClient()
 
         self.__ssh_client = SSHClient(None)
 
@@ -242,6 +245,10 @@ class ManagementEngineAPI(object):
 
         key = self.__init_ssh()
         self.__ssh_client = SSHClient(key)
+        
+        cert = self._admin_ks.cert()
+        ckey = self._admin_ks.cert_key()
+        self.__fri_client = FriClient(bool(cert), cert, ckey)
 
     def need_key_storage_init(self):
         if self.is_secured_installation() and not self._admin_ks:
@@ -380,6 +387,17 @@ class ManagementEngineAPI(object):
         cert = Openssl().generate_self_signed_cert(356*100, '/CN=%s'%context, pri, passphrase=None)
         return cert, pri
 
+    def fri_call_node(self, node_addr, method_name, params=None):
+        if not params:
+            params = {}
+        packet = FabnetPacketRequest(method=method_name, parameters=params)
+        return self.__fri_client.call_sync(node_addr, packet)
+    
+    def fri_call_net(self, node_addr, method_name, params=None):
+        if not params:
+            params = {}
+        packet = FabnetPacketRequest(method=method_name, parameters=params)
+        return self.__fri_client.call(node_addr, packet)
 
 
 @MgmtApiMethod(ROLE_RO)

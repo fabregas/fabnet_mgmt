@@ -191,19 +191,6 @@ class ManagementOperator(Operator):
             ret_nodes[node[DBK_NODEADDR]] = node_info
         return ret_nodes
 
-    def get_releases(self):
-        releases = {}
-        db_rels = self.__db_api.get_releases()
-        for db_rel in db_rels:
-            releases[db_rel[DBK_ID].lower()] = db_rel[DBK_RELEASE_URL]
-        return releases
-
-    def clear_upgrade_flag(self):
-        self.__db_api.set_config(None, {DBK_UPGRADE_FLAG: False})
-
-    def is_need_upgrade(self):
-        return self.__db_api.get_config_param(None, DBK_UPGRADE_FLAG)
-
 
 class CollectNodeStatisticsThread(threading.Thread):
     def __init__(self, operator, client, check_status=STATUS_UP):
@@ -239,23 +226,6 @@ class CollectNodeStatisticsThread(threading.Thread):
 
                 dt = total_seconds(datetime.now() - t0)
                 logger.info('Nodes (with status=%s) stat is collected. Processed secs: %s'%(self.check_status, dt))
-
-                if self.check_status == STATUS_UP and last_up_node:
-                    need = self.operator.is_need_upgrade()
-                    if not need:
-                        pass
-                    else:
-                        force = True if need == 'need_force' else False
-                        releases = self.operator.get_releases()
-                        packet_obj = FabnetPacketRequest(method='UpgradeNode', parameters={'releases': releases, 'force': force})
-                        rcode, rmsg = self.client.call(last_up_node, packet_obj)
-                        if rcode:
-                            self.notify(last_up_node, ET_ALERT, 'UpgradeNodeOperation call', rmsg)
-                        else:
-                            self.operator.clear_upgrade_flag()
-                            self.notify(last_up_node, ET_INFO, 'UpgradeNodeOperation call', 'UpgradeNode operation is started over fabnet')
-
-                dt = total_seconds(datetime.now() - t0)
             except Exception, err:
                 logger.error(str(err))
             finally:

@@ -181,8 +181,6 @@ class TestMgmtNode(unittest.TestCase):
 
         up_oper = mgmt_db[DBK_NOTIFICATIONS].find({DBK_NOTIFY_TOPIC: 'UpgradeNodeOperation call'})
         self.assertEqual(up_oper.count(), 0)
-        #upgrade cluster request...
-        mgmt_db[DBK_CLUSTER_CONFIG].insert({DBK_NODE_NAME: None, DBK_CONFIG_PARAM: DBK_UPGRADE_FLAG, DBK_CONFIG_VALUE: True})
 
         events = mgmt_db[DBK_NOTIFICATIONS].find({DBK_NOTIFY_TOPIC: 'NodeUp'})
         self.assertEqual(events.count(), 3)
@@ -196,9 +194,6 @@ class TestMgmtNode(unittest.TestCase):
         ret_code, msg = client.call(ADDRESSES[0], packet_obj)
         self.assertEqual(ret_code, 0, msg)
         time.sleep(2)
-
-        up_oper = mgmt_db[DBK_NOTIFICATIONS].find({DBK_NOTIFY_TOPIC: 'UpgradeNodeOperation call'})
-        self.assertEqual(up_oper.count(), 1)
 
         nodes_info = mgmt_db[DBK_NODES].find({})
         self.assertEqual(nodes_info.count(), 4)

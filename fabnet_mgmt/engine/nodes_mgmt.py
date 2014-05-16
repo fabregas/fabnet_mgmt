@@ -7,7 +7,7 @@ import tempfile
 
 from fabnet_mgmt.engine.decorators import MgmtApiMethod
 from fabnet_mgmt.engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
-        USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, DBK_KS_PWD_ENCR, \
+        USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, DBK_KS_PWD_ENCR, MGMT_NODE_TYPE, \
         DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, DBK_NODEADDR, STATUS_UP, STATUS_DOWN, DBK_UPGRADE_FLAG
 from fabnet_mgmt.engine.exceptions import MEAlreadyExistsException, \
         MEOperException, MENotFoundException, MEBadURLException 
@@ -294,17 +294,23 @@ def __stop_node(engine, node):
         return 'Node %s is already stopped'%node[DBK_ID]
     raise MEOperException('\n# %s\n%s\nERROR! Node does not stopped!'%(cmd, cli_inst.output))
 
-def __upgrade_node(engine, node, force):
+def __upgrade_node(engine, node, force, all_releases=False):
     ssh_cli = engine.get_ssh_client()
     ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
     cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
 
-    release = engine.db_mgr().get_release(node[DBK_NODETYPE])
-    if not release:
-        return
-    release_url = release[DBK_RELEASE_URL]
-    cmd = 'sudo /opt/blik/fabnet/bin/pkg-install %s %s'%(release_url, '--force' if force else '')
-    cli_inst.safe_exec(cmd)
+    if all_releases:
+        releases = engine.db_mgr().get_releases()
+    else:
+        release = engine.db_mgr().get_release(node[DBK_NODETYPE])
+        if not release:
+            return
+        releases = [release]
+
+    for release in releases:
+        release_url = release[DBK_RELEASE_URL]
+        cmd = 'sudo /opt/blik/fabnet/bin/pkg-install %s %s'%(release_url, '--force' if force else '')
+        cli_inst.safe_exec(cmd)
 
 def __get_nodes_objs(engine, nodes_list):
     nodes_objs = []
@@ -320,12 +326,13 @@ def __get_nodes_objs(engine, nodes_list):
     return nodes_objs
 
 @MgmtApiMethod(ROLE_SS)
-def start_nodes(engine, session_id, nodes_list=[]):
+def start_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
     nodes_objs = __get_nodes_objs(engine, nodes_list)
     ret_str = ''
-    for node_obj in nodes_objs:
+    for i, node_obj in enumerate(nodes_objs):
         need_upgr = node_obj.get(DBK_UPGRADE_FLAG, False)
         if need_upgr:
+            __log(log, 'Upgrading %s node ...'%node_obj[DBK_ID])
             __upgrade_node(engine, node_obj, need_upgr == 'need_force')
             
         config = engine.db_mgr().get_config(node_obj[DBK_ID], ret_all=True)
@@ -341,21 +348,47 @@ def start_nodes(engine, session_id, nodes_list=[]):
         if not neighbour:
             neighbour = 'init-fabnet'
 
-        ret_str += __start_node(engine, node_obj, config, neighbour)
-        ret_str += '\n'
+        __log(log, 'Starting %s node ...'%node_obj[DBK_ID])
+        try:
+            ret_str = __start_node(engine, node_obj, config, neighbour)
+            if ret_str:
+                __log(log, ret_str)
+            else:
+                __log(log, 'Done.')
+        except Exception, err:
+            __log(log, 'Error: %s'%err)
+
+        try:
+            if wait_routine:
+                wait_routine(i, node_obj)
+        except Exception, err:
+            __log(log, 'Wait %s node stop error: %s'%(node_obj[DBK_ID], err))
 
         node_obj[DBK_STATUS] = STATUS_UP
         node_obj[DBK_UPGRADE_FLAG] = False
         engine.db_mgr().update_fabnet_node(node_obj)
-    return ret_str.strip()
 
 
 @MgmtApiMethod(ROLE_SS)
-def stop_nodes(engine, session_id, nodes_list=[]):
+def stop_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
     nodes_objs = __get_nodes_objs(engine, nodes_list)
 
-    for node_obj in nodes_objs:
-        __stop_node(engine, node_obj)
+    for i, node_obj in enumerate(nodes_objs):
+        __log(log, 'Stopping %s node ...'%node_obj[DBK_ID])
+        try:
+            ret_str = __stop_node(engine, node_obj)
+            if ret_str:
+                __log(log, ret_str)
+            else:
+                __log(log, 'Done.')
+        except Exception, err:
+            __log(log, 'Error: %s'%err)
+
+        try:
+            if wait_routine:
+                wait_routine(i, node_obj)
+        except Exception, err:
+            __log(log, 'Wait %s node stop error: %s'%(node_obj[DBK_ID], err))
 
         node_obj[DBK_STATUS] = STATUS_DOWN
         engine.db_mgr().update_fabnet_node(node_obj)
@@ -377,14 +410,36 @@ def get_nodes_stat(engine, session_id, nodes_list=[]):
         ret_list[node_obj[DBK_ID]] = stat 
     return ret_list
 
+def __log(log_obj, message):
+    if log_obj:
+        log_obj.write(message+'\n')
 
 @MgmtApiMethod(ROLE_SS)
-def software_upgrade(engine, session_id, force=False):
+def software_upgrade(engine, session_id, force=False, log=None):
+    #install all nodes types on management node 
+    mgmt_nodes = engine.db_mgr().get_fabnet_nodes({DBK_NODETYPE: MGMT_NODE_TYPE, DBK_STATUS: STATUS_UP})
+    act_node = None
+    if mgmt_nodes.count() == 0:
+        raise Exception('No online nodes with type=%s found!'%MGMT_NODE_TYPE)
+
+    for mgmt_node in mgmt_nodes:
+        __log(log, 'Upgrading management node %s ...'%mgmt_node[DBK_ID])
+        __upgrade_node(engine, mgmt_node, force, all_releases=True)
+        act_node = mgmt_node
+
+
+    #mark all down nodes with upgrade flag
     nodes = engine.db_mgr().get_fabnet_nodes(filter_map={DBK_STATUS: STATUS_DOWN})
     for node in nodes:
         node[DBK_UPGRADE_FLAG] = 'need_force' if force else 'need'
         engine.db_mgr().update_fabnet_node(node)
 
-    engine.db_mgr().set_config(None, {DBK_UPGRADE_FLAG: 'need_force' if force else 'need'})
+    #call upgrade operation over fabnet
+    __log(log, 'Calling upgrade operation over network asynchronously ...')
+    releases = engine.db_mgr().get_releases()
+    parameters={'releases': releases, 'force': force}
+    ret_code, ret_msg = engine.fri_call_net(act_node[DBK_NODEADDR], 'UpgradeNode')
+    if ret_code:
+        raise Exception('Unable to call UpgradeNode operation: %s'%ret_msg)
 
 

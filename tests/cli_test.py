@@ -497,6 +497,7 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('set-release test-node-type file://%s/tests/data/invalid_release'%os.path.abspath('.'), 'File is not a zip file')
             self._cmd('set-release test-node-type file://%s/tests/data/novers_release.zip'%os.path.abspath('.'), 'installed')
             self._cmd('set-release DHT file://%s/tests/data/valid_release.zip'%os.path.abspath('.'), 'installed')
+            self._cmd('set-release MGMT file://%s/tests/data/valid_release.zip'%os.path.abspath('.'), 'installed')
 
             self._cmd('show-releases', ['unknown', '0.9a-2412'], ['Error', 'error'])
         finally:
@@ -516,6 +517,7 @@ class TestMgmtCLI(unittest.TestCase):
             cli.expect(PROMT)
 
             TestMgmtCLI.CLI = cli
+            MockedSFTP.get_files()
             self._cmd('help install-physical-node', 'i-pnode') 
             self._cmd('install-physical-node', 'Usage: INSTALL-PHYSICAL-NODE <node hostname>[:<ssh port>] <ssh user name> --pwd | <ssh key url>') 
 
@@ -573,7 +575,9 @@ class TestMgmtCLI(unittest.TestCase):
                 self.assertTrue(cert['cert_serial_id'] > 0)
                 self.assertEqual(cert['status'], 'active')
             else:
-                self.assertEqual(len(files), 1)
+                self.assertEqual(len(files), 1, files)
+
+            self._cmd('install-node test_hostname.com test_node02 mgmt mgmt_test_node:2223', 'installed')
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
@@ -669,17 +673,26 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('start-node', 'Usage: START-NODE')
             self._cmd('help start-node', 'startnode')
             self._cmd('start-node unkn-node', 'Error! [50] Node "unkn-node" does not found!')
-            self._cmd('start-node test_node01', 'started')
+            self._cmd('start-node test_node01', ['Starting', 'Done'])
 
             self.assertEqual(len(MockedSSHClient.INPUT_LOG), 1 if self.IS_SECURED else 0)
             
             self._cmd('stop-node', 'Usage: STOP-NODE')
             self._cmd('help stop-node', 'stopnode')
             self._cmd('stop-node unkn-node', 'Error! [50] Node "unkn-node" does not found!')
-            self._cmd('stop-node test_node01', 'stopped')
+            self._cmd('stop-node test_node01', ['Stopping', 'Done'])
 
+            MockedSSHClient.clear_logs()
             self._cmd('help software-upgrade', 'softup')
-            self._cmd('software-upgrade', 'started')
+            self._cmd('software-upgrade', 'No online nodes with type=MGMT found!')
+            dbm = MgmtDatabaseManager('localhost')
+            dbm.change_node_status('mgmt_test_node:2223', 1)
+            self._cmd('software-upgrade', 'Unable to call UpgradeNode operation')
+            self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 1, MockedSSHClient.CONNECT_LOG)
+            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 3, MockedSSHClient.COMMANDS_LOG)
+
+            BaseMgmtCLIHandler.mgmtManagementAPI.fri_call_net = lambda naddr, mname: (0, 'ok')
+            self._cmd('software-upgrade', 'upgrade process is started')
 
             #test plugins
             self._cmd('help test-plugin-operation', 'testplugins')
@@ -737,6 +750,7 @@ class TestMgmtCLI(unittest.TestCase):
             cli.expect(PROMT)
 
 
+            self._cmd('rm-node test_node02 --force', 'removed')
             self._cmd('rm-pnode test_hostname.com --force', 'removed')
 
             self._cmd('help')

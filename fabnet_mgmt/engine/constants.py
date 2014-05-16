@@ -81,6 +81,8 @@ ROLE_UPGR = 'upgrade'
 #user name for nodes
 USER_NAME = 'fabnet'
 
+MGMT_NODE_TYPE = 'MGMT'
+
 ROLES_DESC = {ROLE_RO: 'Read only access',
             ROLE_UM: 'Manage users accounts access',
             ROLE_NM: 'Manage cluster nodes (install, remove)',
