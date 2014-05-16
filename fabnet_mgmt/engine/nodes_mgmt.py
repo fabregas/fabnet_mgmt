@@ -294,12 +294,12 @@ def __stop_node(engine, node):
         return 'Node %s is already stopped'%node[DBK_ID]
     raise MEOperException('\n# %s\n%s\nERROR! Node does not stopped!'%(cmd, cli_inst.output))
 
-def __upgrade_node(engine, node, force, all_releases=False):
+def __upgrade_node(engine, node, force):
     ssh_cli = engine.get_ssh_client()
     ph_node = engine.db_mgr().get_physical_node(node[DBK_PHNODEID])
     cli_inst = ssh_cli.connect(ph_node[DBK_ID], ph_node[DBK_SSHPORT], USER_NAME)
 
-    if all_releases:
+    if node[DBK_NODETYPE].upper() == MGMT_NODE_TYPE:
         releases = engine.db_mgr().get_releases()
     else:
         release = engine.db_mgr().get_release(node[DBK_NODETYPE])
@@ -416,18 +416,6 @@ def __log(log_obj, message):
 
 @MgmtApiMethod(ROLE_SS)
 def software_upgrade(engine, session_id, force=False, log=None):
-    #install all nodes types on management node 
-    mgmt_nodes = engine.db_mgr().get_fabnet_nodes({DBK_NODETYPE: MGMT_NODE_TYPE, DBK_STATUS: STATUS_UP})
-    act_node = None
-    if mgmt_nodes.count() == 0:
-        raise Exception('No online nodes with type=%s found!'%MGMT_NODE_TYPE)
-
-    for mgmt_node in mgmt_nodes:
-        __log(log, 'Upgrading management node %s ...'%mgmt_node[DBK_ID])
-        __upgrade_node(engine, mgmt_node, force, all_releases=True)
-        act_node = mgmt_node
-
-
     #mark all down nodes with upgrade flag
     nodes = engine.db_mgr().get_fabnet_nodes(filter_map={DBK_STATUS: STATUS_DOWN})
     for node in nodes:
@@ -437,8 +425,18 @@ def software_upgrade(engine, session_id, force=False, log=None):
     #call upgrade operation over fabnet
     __log(log, 'Calling upgrade operation over network asynchronously ...')
     releases = engine.db_mgr().get_releases()
-    parameters={'releases': releases, 'force': force}
-    ret_code, ret_msg = engine.fri_call_net(act_node[DBK_NODEADDR], 'UpgradeNode', parameters)
+    rel_map = {}
+    for release in releases:
+        rel_map[release[DBK_ID].upper()] = release[DBK_RELEASE_URL]
+    rel_map[MGMT_NODE_TYPE] = rel_map.values()
+
+    parameters={'releases': rel_map, 'force': force}
+
+    mgmt_nodes = engine.db_mgr().get_fabnet_nodes({DBK_STATUS: STATUS_UP})
+    mgmt_nodes = mgmt_nodes.limit(1)
+    if mgmt_nodes.count() == 0:
+        return
+    ret_code, ret_msg = engine.fri_call_net(mgmt_nodes[0][DBK_NODEADDR], 'UpgradeNode', parameters)
     if ret_code:
         raise Exception('Unable to call UpgradeNode operation: %s'%ret_msg)
 

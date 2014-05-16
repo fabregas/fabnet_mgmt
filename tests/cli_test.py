@@ -25,7 +25,7 @@ from pymongo import MongoClient
 import pexpect
 import paramiko
 
-KS_PATH = './tests/ks/test.p12'
+KS_PATH = os.path.join(path, './ks/test.p12')
 KS_PASSWD = 'node'
 
 BASIC_CMDS = ['HELP', 'EXIT', 'CHANGE-PWD']
@@ -684,14 +684,11 @@ class TestMgmtCLI(unittest.TestCase):
 
             MockedSSHClient.clear_logs()
             self._cmd('help software-upgrade', 'softup')
-            self._cmd('software-upgrade', 'No online nodes with type=MGMT found!')
             dbm = MgmtDatabaseManager('localhost')
             dbm.change_node_status('mgmt_test_node:2223', 1)
             self._cmd('software-upgrade', 'Unable to call UpgradeNode operation')
-            self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 1, MockedSSHClient.CONNECT_LOG)
-            self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 3, MockedSSHClient.COMMANDS_LOG)
 
-            BaseMgmtCLIHandler.mgmtManagementAPI.fri_call_net = lambda naddr, mname: (0, 'ok')
+            BaseMgmtCLIHandler.mgmtManagementAPI.fri_call_net = lambda naddr, mname, p: (0, 'ok')
             self._cmd('software-upgrade', 'upgrade process is started')
 
             #test plugins
