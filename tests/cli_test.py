@@ -171,7 +171,7 @@ class CLIThread(threading.Thread):
 class TestMgmtCLI(unittest.TestCase):
     thread = None
     CLI = None
-
+    NODES = []
     IS_SECURED = False
 
     def test00_init(self):
@@ -301,10 +301,10 @@ class TestMgmtCLI(unittest.TestCase):
 
             self._cmd('i-pnode test_hostname.com:322 test_user file:/%s/ks/key.pem'%PATH, 'configured!')
 
-            for i, (node_type, node_name) in enumerate(TestMgmtCLI.NODES):
+            for i, (node_type, node_name) in enumerate(self.NODES):
                 self._cmd('install-node test_hostname.com %s %s externa_addr_test_node:222%s'% \
-                        (node_type, node_name,i), 'installed')
-            self._cmd('shnodes', [i[1] for i in TestMgmtCLI.NODES])
+                        (node_name, node_type,i), 'installed')
+            self._cmd('shnodes', [i[1] for i in self.NODES])
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
@@ -324,8 +324,8 @@ class TestMgmtCLI(unittest.TestCase):
 
             TestMgmtCLI.CLI = cli
             
-            for i, (node_type, node_name) in enumerate(TestMgmtCLI.NODES):
-                self._cmd('rm-node %s --force', 'removed'%node_name)
+            for i, (node_type, node_name) in enumerate(self.NODES):
+                self._cmd('rm-node %s --force'%node_name, 'removed')
             self._cmd('rm-pnode test_hostname.com --force', 'removed')
 
             self._cmd('help')
