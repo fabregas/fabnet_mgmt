@@ -19,7 +19,7 @@ def create_ca_ks(output_file, password, role_name, root_ca_ks=None, CN=None):
             raise Exception('CA certificates file is found at %s. Can not create new root CA!'%S.CA_CERTS_FILE)
 
         print ' -> generating root CA key storage at %s ...'%output_file
-        ca_private, ca_cert = generate_ca(2048, None, role_name, 100*365, CN)
+        ca_private, ca_cert = generate_ca(2048, None, role_name, 10*365, CN)
         print ' -> OK'
     else:
         if not os.path.exists(S.CA_CERTS_FILE):

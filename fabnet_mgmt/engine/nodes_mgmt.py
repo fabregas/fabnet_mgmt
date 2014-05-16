@@ -438,7 +438,7 @@ def software_upgrade(engine, session_id, force=False, log=None):
     __log(log, 'Calling upgrade operation over network asynchronously ...')
     releases = engine.db_mgr().get_releases()
     parameters={'releases': releases, 'force': force}
-    ret_code, ret_msg = engine.fri_call_net(act_node[DBK_NODEADDR], 'UpgradeNode')
+    ret_code, ret_msg = engine.fri_call_net(act_node[DBK_NODEADDR], 'UpgradeNode', parameters)
     if ret_code:
         raise Exception('Unable to call UpgradeNode operation: %s'%ret_msg)
 
