@@ -9,9 +9,10 @@ Copyright (C) 2014 Konstantin Andrusenko
 @date February 3, 2014
 """
 
-from fabnet_mgmt.cli.decorators import cli_command
 from fabnet_mgmt.engine.constants import *
 from fabnet_mgmt.engine.exceptions import MENotFoundException, MEInvalidArgException
+from fabnet_mgmt.cli.decorators import cli_command
+from fabnet_mgmt.cli.utils import parse_nodes 
 
 import os
 import urllib2
@@ -234,21 +235,28 @@ class NodesMgmtCLIHandler:
 
     @cli_command(30, 'start-node', 'start_nodes', 'startnode', validator=(str,))
     def command_start_node(self, params):
-        '''<node name>
-        Start node
+        '''<node(s)>
+        Start nodes
         This command starts installed fabnet node
+
+        Arguments in the <node(s)> list may include normal nodes names, a range of names in hostlist format.
+        The hostlist syntax is meant only as a convenience on clusters with a "prefixNNN" naming convention
+        and specification of ranges should not be considered necessary --
+        this foo1,foo9 could be specified as such, or by the hostlist foo[1,9].
+        Examples of hostlist format: foo[01-05], foo[7,9-10]
         '''
-        node_name = params[0]
-        self.mgmtManagementAPI.start_nodes(self.session_id, [node_name], log=self)
+        nodes_list = parse_nodes(params[0])
+        self.mgmtManagementAPI.start_nodes(self.session_id, nodes_list, log=self)
 
     @cli_command(31, 'stop-node', 'stop_nodes', 'stopnode', validator=(str,))
     def command_stop_node(self, params):
-        '''<node name>
-        Stop node
+        '''<node(s)>
+        Stop nodes
         This command stops installed fabnet node
+        Arguments in the <node(s)> list may include normal nodes names, a range of names in hostlist format.
         '''
-        node_name = params[0]
-        self.mgmtManagementAPI.stop_nodes(self.session_id, [node_name], log=self)
+        nodes_list = parse_nodes(params[0])
+        self.mgmtManagementAPI.stop_nodes(self.session_id, nodes_list, log=self)
 
 
     @cli_command(32, 'software-upgrade', 'software_upgrade', 'softup')

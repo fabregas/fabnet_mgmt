@@ -28,6 +28,7 @@ import paramiko
 KS_PATH = os.path.join(path, './ks/test.p12')
 KS_PASSWD = 'node'
 
+PATH = path
 BASIC_CMDS = ['HELP', 'EXIT', 'CHANGE-PWD']
 USERSMGMT_CMDS = BASIC_CMDS + ['CHANGE-USER-ROLES', 'CREATE-USER',\
                         'REMOVE-USER', 'SHOW-ROLES', 'USER-INFO'] 
@@ -494,10 +495,10 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('set-release', 'Usage: SET-RELEASE <node type> <release url>')
             self._cmd('set-release test-node-type', 'Usage: SET-RELEASE <node type> <release url>')
             self._cmd('set-release test-node-type test', 'Bad release URL')
-            self._cmd('set-release test-node-type file://%s/tests/data/invalid_release'%os.path.abspath('.'), 'File is not a zip file')
-            self._cmd('set-release test-node-type file://%s/tests/data/novers_release.zip'%os.path.abspath('.'), 'installed')
-            self._cmd('set-release DHT file://%s/tests/data/valid_release.zip'%os.path.abspath('.'), 'installed')
-            self._cmd('set-release MGMT file://%s/tests/data/valid_release.zip'%os.path.abspath('.'), 'installed')
+            self._cmd('set-release test-node-type file://%s/data/invalid_release'%PATH, 'File is not a zip file')
+            self._cmd('set-release test-node-type file://%s/data/novers_release.zip'%PATH, 'installed')
+            self._cmd('set-release DHT file://%s/data/valid_release.zip'%PATH, 'installed')
+            self._cmd('set-release MGMT file://%s/data/valid_release.zip'%PATH, 'installed')
 
             self._cmd('show-releases', ['unknown', '0.9a-2412'], ['Error', 'error'])
         finally:
@@ -523,14 +524,14 @@ class TestMgmtCLI(unittest.TestCase):
 
             self._cmd('i-pnode test_hostname.com:322 test_user /test/file', 'Error! [60] Unsupported URL type!')
             self._cmd('i-pnode test_hostname.com:322 test_user file:/test/file', 'Error! [50] Local file "test/file" does not found!')
-            self._cmd('i-pnode test_hostname.com:322 test_user file:/./tests/cli_test.py', 'Unexpected error: not a valid RSA private key file')
+            self._cmd('i-pnode test_hostname.com:322 test_user file:/%s/cli_test.py'%PATH, 'Unexpected error: not a valid RSA private key file')
             self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 0, MockedSSHClient.CONNECT_LOG)
 
             dbm = MgmtDatabaseManager('localhost')
             node = dbm.get_physical_node('test_hostname.com')
             self.assertEqual(node, None)
 
-            self._cmd('i-pnode test_hostname.com:322 test_user file:/./tests/ks/key.pem', 'configured!')
+            self._cmd('i-pnode test_hostname.com:322 test_user file:/%s/ks/key.pem'%PATH, 'configured!')
             self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 2, MockedSSHClient.CONNECT_LOG)
             self.assertEqual(MockedSSHClient.CONNECT_LOG[1], ('test_hostname.com', 322, 'fabnet', None, None))
             self.assertEqual(MockedSSHClient.CONNECT_LOG[0][:4], ('test_hostname.com', 322, 'test_user', None))
@@ -674,6 +675,8 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('help start-node', 'startnode')
             self._cmd('start-node unkn-node', 'Error! [50] Node "unkn-node" does not found!')
             self._cmd('start-node test_node01', ['Starting', 'Done'])
+            self._cmd('start-node test_node[00-01]', ['Node "test_node00" does not found!'])
+            self._cmd('start-node test_node[01-02]', ['Starting', 'Done'], ['Error'])
 
             self.assertEqual(len(MockedSSHClient.INPUT_LOG), 1 if self.IS_SECURED else 0)
             
@@ -691,14 +694,17 @@ class TestMgmtCLI(unittest.TestCase):
             BaseMgmtCLIHandler.mgmtManagementAPI.fri_call_net = lambda naddr, mname, p: (0, 'ok')
             self._cmd('software-upgrade', 'upgrade process is started')
 
-            #test plugins
-            self._cmd('help test-plugin-operation', 'testplugins')
-            self._cmd('test-plugin-operation \'some message\'', 'RESPONSE: some message')
+            self.plugins_test(cli)
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
             cli.close(force=True)
             TestMgmtCLI.CLI = None
+
+    def plugins_test(self, cli):
+        #test plugins
+        self._cmd('help test-plugin-operation', 'testplugins')
+        self._cmd('test-plugin-operation \'some message\'', 'RESPONSE: some message')
 
     def test09_nodesmgmt_remove_nodes(self):
         cli = pexpect.spawn('telnet 127.0.0.1 8022', timeout=2)
