@@ -274,3 +274,13 @@ class MgmtDatabaseManager:
                                                     DBK_NOTIFY_MSG: message,
                                                     DBK_NOTIFY_DT: date})
 
+    def get_notifications(self, node=None, n_type=None, n_topic=None, limit=0):
+        spec = {}
+        if node:
+            spec[DBK_NODEADDR] = node
+        if n_type:
+            spec[DBK_NOTIFY_TYPE] = n_type
+        if n_topic:
+            spec[DBK_NOTIFY_TOPIC] = n_type
+
+        return self.__mgmt_db[DBK_NOTIFICATIONS].find(spec).sort(DBK_NOTIFY_DT, -1).limit(limit)

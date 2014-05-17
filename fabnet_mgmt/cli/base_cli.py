@@ -131,7 +131,7 @@ class BaseMgmtCLIHandler(TelnetHandler):
             #    docps = "%s - %s" % (docp, docs, )
             #else:
             #    docps = "- %s" % (docs, )
-            self.writeline("%s - %s" % (cmd.ljust(20), docs))
+            self.writeline("%s - %s" % (cmd.ljust(22), docs))
 
     @cli_command(1, 'exit')
     def command_exit(self, params):

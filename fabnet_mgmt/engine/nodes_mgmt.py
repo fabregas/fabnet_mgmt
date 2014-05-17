@@ -312,7 +312,7 @@ def __upgrade_node(engine, node, force):
         cmd = 'sudo /opt/blik/fabnet/bin/pkg-install %s %s'%(release_url, '--force' if force else '')
         cli_inst.safe_exec(cmd)
 
-def __get_nodes_objs(engine, nodes_list, need_sort=False):
+def get_nodes_objs(engine, nodes_list, need_sort=False):
     nodes_objs = []
     if nodes_list:
         for node_name in nodes_list:
@@ -341,7 +341,7 @@ def __get_nodes_objs(engine, nodes_list, need_sort=False):
 
 @MgmtApiMethod(ROLE_SS)
 def start_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None, reboot=False):
-    nodes_objs = __get_nodes_objs(engine, nodes_list)
+    nodes_objs = get_nodes_objs(engine, nodes_list)
     ret_str = ''
     for i, node_obj in enumerate(nodes_objs):
         need_upgr = node_obj.get(DBK_UPGRADE_FLAG, False)
@@ -394,7 +394,7 @@ def start_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None, 
 
 @MgmtApiMethod(ROLE_SS)
 def stop_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
-    nodes_objs = __get_nodes_objs(engine, nodes_list, need_sort=True)
+    nodes_objs = get_nodes_objs(engine, nodes_list, need_sort=True)
 
     for i, node_obj in enumerate(nodes_objs):
         __log(log, 'Stopping %s node ...'%node_obj[DBK_ID])
@@ -419,7 +419,7 @@ def stop_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
 
 @MgmtApiMethod(ROLE_RO)
 def get_nodes_stat(engine, session_id, nodes_list=[]):
-    nodes_objs = __get_nodes_objs(engine, nodes_list)
+    nodes_objs = get_nodes_objs(engine, nodes_list)
     ret_list = {}
     for node_obj in nodes_objs:
         if node_obj.get(DBK_STATUS, STATUS_DOWN) == STATUS_DOWN:
