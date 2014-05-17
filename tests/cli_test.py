@@ -721,6 +721,8 @@ class TestMgmtCLIBase(TestMgmtCLI):
             self._cmd('start-nodes test_node[01-02]', ['Starting', 'Done'], ['Error'])
 
             self.assertEqual(len(MockedSSHClient.INPUT_LOG), 3 if self.IS_SECURED else 0)
+
+            self._cmd('reload-nodes test_node[01-02]', ['Rebooting', 'Done', 'Skipped'], ['Error'])
             
             self._cmd('stop-nodes', 'Usage: STOP-NODES')
             self._cmd('help stop-nodes', 'stopnodes')
@@ -814,4 +816,5 @@ if __name__ == '__main__':
     suite.addTest(unittest.makeSuite(TestMgmtCLIBase))
     suite.addTest(unittest.makeSuite(SecuredTestMgmtCLI))
     runner = unittest.TextTestRunner()
-    runner.run(suite)
+    ret = runner.run(suite)
+    sys.exit(len(ret.failures))

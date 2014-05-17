@@ -257,9 +257,19 @@ class NodesMgmtCLIHandler:
         '''
         nodes_list = parse_nodes(params[0])
         self.mgmtManagementAPI.stop_nodes(self.session_id, nodes_list, log=self)
+        
+    @cli_command(32, 'reload-nodes', 'start_nodes', 'reloadnodes', validator=(str,))
+    def command_reload_node(self, params):
+        '''<node(s)>
+        Reload nodes
+        This command reloads installed fabnet nodes
+        Arguments in the <node(s)> list may include normal nodes names, a range of names in hostlist format.
+        '''
+        nodes_list = parse_nodes(params[0])
+        self.mgmtManagementAPI.start_nodes(self.session_id, nodes_list, log=self, reboot=True)
 
 
-    @cli_command(32, 'software-upgrade', 'software_upgrade', 'softup')
+    @cli_command(33, 'software-upgrade', 'software_upgrade', 'softup')
     def command_soft_upgrade(self, params):
         '''[--force]
         Schedule software upgrade over fabnet network
@@ -274,7 +284,7 @@ class NodesMgmtCLIHandler:
         self.writeresponse('All stopped nodes will be upgraded on next start process')
 
 
-    @cli_command(33, 'fabnet-stat', 'get_nodes_stat', 'fabnetstat', 'fstat')
+    @cli_command(34, 'fabnet-stat', 'get_nodes_stat', 'fabnetstat', 'fstat')
     def command_fabnet_stat(self, params):
         '''
         Show fabnet nodes statistic
@@ -342,7 +352,7 @@ class NodesMgmtCLIHandler:
         if is_notice:
             self.writeresponse(' * - newer version is installed (require reboot)')
 
-    @cli_command(34, 'operations-stat', 'get_nodes_stat', 'opstat', 'ostat')
+    @cli_command(35, 'operations-stat', 'get_nodes_stat', 'opstat', 'ostat')
     def command_operations_stat(self, params):
         '''
         Show fabnet operations statistic

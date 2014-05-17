@@ -312,7 +312,7 @@ def __upgrade_node(engine, node, force):
         cmd = 'sudo /opt/blik/fabnet/bin/pkg-install %s %s'%(release_url, '--force' if force else '')
         cli_inst.safe_exec(cmd)
 
-def __get_nodes_objs(engine, nodes_list):
+def __get_nodes_objs(engine, nodes_list, need_sort=False):
     nodes_objs = []
     if nodes_list:
         for node_name in nodes_list:
@@ -322,11 +322,25 @@ def __get_nodes_objs(engine, nodes_list):
                 raise MENotFoundException('Node "%s" does not found!'%node_name) 
             nodes_objs.append(items[0])
     else:
-        return engine.db_mgr().get_fabnet_nodes({})
-    return nodes_objs
+        nodes_objs = engine.db_mgr().get_fabnet_nodes({})
+
+    if not need_sort:
+        return nodes_objs
+
+    sorted_objs = []
+    mgmt_nodes = []
+    for node_obj in nodes_objs:
+        if node_obj[DBK_NODETYPE] == MGMT_NODE_TYPE:
+            mgmt_nodes.append(node_obj)
+        else:
+            sorted_objs.append(node_obj)
+
+    sorted_objs.sort(key=lambda obj: obj[DBK_ID])
+    sorted_objs += mgmt_nodes
+    return sorted_objs
 
 @MgmtApiMethod(ROLE_SS)
-def start_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
+def start_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None, reboot=False):
     nodes_objs = __get_nodes_objs(engine, nodes_list)
     ret_str = ''
     for i, node_obj in enumerate(nodes_objs):
@@ -348,8 +362,17 @@ def start_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
         if not neighbour:
             neighbour = 'init-fabnet'
 
-        __log(log, 'Starting %s node ...'%node_obj[DBK_ID])
+        if reboot:
+            if node_obj[DBK_NODETYPE] == MGMT_NODE_TYPE:
+                __log(log, 'Skipped management node %s reboot!'%node_obj[DBK_ID])
+                continue
+            __log(log, 'Rebooting %s node ...'%node_obj[DBK_ID])
+        else:
+            __log(log, 'Starting %s node ...'%node_obj[DBK_ID])
+
         try:
+            if reboot:
+                ret_str = __stop_node(engine, node_obj)
             ret_str = __start_node(engine, node_obj, config, neighbour)
             if ret_str:
                 __log(log, ret_str)
@@ -371,20 +394,9 @@ def start_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
 
 @MgmtApiMethod(ROLE_SS)
 def stop_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
-    nodes_objs = __get_nodes_objs(engine, nodes_list)
+    nodes_objs = __get_nodes_objs(engine, nodes_list, need_sort=True)
 
-    sorted_objs = []
-    mgmt_nodes = []
-    for node_obj in nodes_objs:
-        if node_obj[DBK_NODETYPE] == MGMT_NODE_TYPE:
-            mgmt_nodes.append(node_obj)
-        else:
-            sorted_objs.append(node_obj)
-
-    sorted_objs.sort(key=lambda obj: obj[DBK_ID])
-    sorted_objs += mgmt_nodes
-
-    for i, node_obj in enumerate(sorted_objs):
+    for i, node_obj in enumerate(nodes_objs):
         __log(log, 'Stopping %s node ...'%node_obj[DBK_ID])
         try:
             ret_str = __stop_node(engine, node_obj)
@@ -403,10 +415,6 @@ def stop_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
 
         node_obj[DBK_STATUS] = STATUS_DOWN
         engine.db_mgr().update_fabnet_node(node_obj)
-
-@MgmtApiMethod(ROLE_SS)
-def reload_nodes(self, session_id, nodes_list=[]):
-    pass
 
 
 @MgmtApiMethod(ROLE_RO)
