@@ -397,7 +397,7 @@ class ManagementEngineAPI(object):
     def fri_call_net(self, node_addr, method_name, params=None):
         if not params:
             params = {}
-        packet = FabnetPacketRequest(method=method_name, parameters=params)
+        packet = FabnetPacketRequest(method=method_name, parameters=params, is_muticast=True)
         return self.__fri_client.call(node_addr, packet)
 
 
