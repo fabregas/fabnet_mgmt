@@ -281,6 +281,6 @@ class MgmtDatabaseManager:
         if n_type:
             spec[DBK_NOTIFY_TYPE] = n_type
         if n_topic:
-            spec[DBK_NOTIFY_TOPIC] = n_type
+            spec[DBK_NOTIFY_TOPIC] = n_topic
 
         return self.__mgmt_db[DBK_NOTIFICATIONS].find(spec).sort(DBK_NOTIFY_DT, -1).limit(limit)
