@@ -436,6 +436,7 @@ class TelnetHandlerBase(SocketServer.BaseRequestHandler):
         self.iacseq = ''    # Buffer for IAC sequence.
         self.sb = 0     # Flag for SB and SE sequence.
         self.history = []   # Command history
+        self.ordered_commands = []
         self.RUNSHELL = True
 
         SocketServer.BaseRequestHandler.__init__(self, request, client_address, server)
@@ -581,16 +582,17 @@ class TelnetHandlerBase(SocketServer.BaseRequestHandler):
     _current_line = ''
     _current_prompt = ''
     
-    def readline(self, echo=None, prompt='', use_history=True):
+    def readline(self, echo=None, prompt='', use_history=True, cur_line=''):
         """Return a line of text, including the terminating LF
            If echo is true always echo, if echo is false never echo
            If echo is None follow the negotiated setting.
            prompt is the current prompt to write (and rewrite if needed)
            use_history controls if this current line uses (and adds to) the command history.
         """
-        
         line = []
-        insptr = 0
+        for char in cur_line:
+            line.append(char)
+        insptr = len(line)
         histptr = len(self.history)
             
         if self.DOECHO:
@@ -600,12 +602,22 @@ class TelnetHandlerBase(SocketServer.BaseRequestHandler):
             self._current_prompt = ''
         
         self._current_line = ''
+        if cur_line:
+            self._readline_echo(cur_line, echo)
+
+        tab_cnt = 0
         
         while True:
             c = self.getc(block=True)
+
             if not c:
                 raise EOFException()
-            elif c == theNULL:
+            elif c == chr(9):
+                tab_cnt += 1
+            else:
+                tab_cnt = 0
+
+            if c == theNULL:
                 continue
             elif c == curses.KEY_LEFT:
                 if insptr > 0:
@@ -655,6 +667,21 @@ class TelnetHandlerBase(SocketServer.BaseRequestHandler):
                     return ''
                 self._readline_echo('\n' + curses.ascii.unctrl(c) + ' QUIT\n', echo)
                 return 'QUIT'
+            elif c == chr(9):
+                endings = self.try_end_command(''.join(line))
+                if not endings:
+                    continue
+                if len(endings) == 1:
+                    ending = endings[0]
+                    self._readline_echo(ending, echo)
+                    for char in ending:
+                        line.append(char)
+                        insptr += 1
+                else:
+                    if tab_cnt == 2:
+                        self.__print_sug_commands(''.join(line), endings)
+                        return self.readline(echo, prompt, use_history, ''.join(line))
+                continue
             elif c == chr(10):
                 self._readline_echo(c, echo)
                 if use_history and line and echo != False:
@@ -687,6 +714,21 @@ class TelnetHandlerBase(SocketServer.BaseRequestHandler):
             if self._readline_do_echo(echo):
                 self._current_line = line
     
+    def __print_sug_commands(self, starting, endings):
+        hstr = ''
+        while True:
+            hstr += '\n'
+            if not endings:
+                break
+
+            for i in xrange(4):
+                if not endings:
+                    break
+                ending = endings.pop(0)
+                hstr += ('%s%s'%(starting, ending)).ljust(25)
+
+        self.write(hstr)
+
     #abstractmethod
     def getc(self, block=True):
         """Return one character from the input queue"""
@@ -862,6 +904,21 @@ class TelnetHandlerBase(SocketServer.BaseRequestHandler):
             self.username = None
             return True
             
+    def try_end_command(self, start_cmd):
+        u_start_cmd = start_cmd.upper()
+        variants = []
+        for command in self.ordered_commands:
+            if command.startswith(u_start_cmd):
+                variants.append(command)
+
+        ret_list = []
+        islower = start_cmd[0].islower()
+        for cmd in variants:
+            ending = cmd[len(start_cmd):]
+            if islower:
+                ending = ending.lower()
+            ret_list.append(ending)
+        return ret_list
 
     def handle(self):
         "The actual service to which the user has connected."
