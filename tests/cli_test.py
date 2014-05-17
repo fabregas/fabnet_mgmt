@@ -713,19 +713,19 @@ class TestMgmtCLIBase(TestMgmtCLI):
 
             self.assertEqual(len(MockedSSHClient.INPUT_LOG), 0)
 
-            self._cmd('start-node', 'Usage: START-NODE')
-            self._cmd('help start-node', 'startnode')
-            self._cmd('start-node unkn-node', 'Error! [50] Node "unkn-node" does not found!')
-            self._cmd('start-node test_node01', ['Starting', 'Done'])
-            self._cmd('start-node test_node[00-01]', ['Node "test_node00" does not found!'])
-            self._cmd('start-node test_node[01-02]', ['Starting', 'Done'], ['Error'])
+            self._cmd('start-nodes', 'Usage: START-NODES')
+            self._cmd('help start-nodes', 'startnodes')
+            self._cmd('start-nodes unkn-node', 'Error! [50] Node "unkn-node" does not found!')
+            self._cmd('start-nodes test_node01', ['Starting', 'Done'])
+            self._cmd('start-nodes test_node[00-01]', ['Node "test_node00" does not found!'])
+            self._cmd('start-nodes test_node[01-02]', ['Starting', 'Done'], ['Error'])
 
             self.assertEqual(len(MockedSSHClient.INPUT_LOG), 3 if self.IS_SECURED else 0)
             
-            self._cmd('stop-node', 'Usage: STOP-NODE')
-            self._cmd('help stop-node', 'stopnode')
-            self._cmd('stop-node unkn-node', 'Error! [50] Node "unkn-node" does not found!')
-            self._cmd('stop-node test_node01', ['Stopping', 'Done'])
+            self._cmd('stop-nodes', 'Usage: STOP-NODES')
+            self._cmd('help stop-nodes', 'stopnodes')
+            self._cmd('stop-nodes unkn-node', 'Error! [50] Node "unkn-node" does not found!')
+            self._cmd('stop-nodes test_node01', ['Stopping', 'Done'])
 
             MockedSSHClient.clear_logs()
             self._cmd('help software-upgrade', 'softup')

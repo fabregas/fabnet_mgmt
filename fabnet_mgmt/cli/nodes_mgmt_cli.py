@@ -233,11 +233,11 @@ class NodesMgmtCLIHandler:
                 continue
             self.writeresponse('%-30s %s'%(key,  value))
 
-    @cli_command(30, 'start-node', 'start_nodes', 'startnode', validator=(str,))
+    @cli_command(30, 'start-nodes', 'start_nodes', 'startnodes', validator=(str,))
     def command_start_node(self, params):
         '''<node(s)>
         Start nodes
-        This command starts installed fabnet node
+        This command starts installed fabnet nodes
 
         Arguments in the <node(s)> list may include normal nodes names, a range of names in hostlist format.
         The hostlist syntax is meant only as a convenience on clusters with a "prefixNNN" naming convention
@@ -248,11 +248,11 @@ class NodesMgmtCLIHandler:
         nodes_list = parse_nodes(params[0])
         self.mgmtManagementAPI.start_nodes(self.session_id, nodes_list, log=self)
 
-    @cli_command(31, 'stop-node', 'stop_nodes', 'stopnode', validator=(str,))
+    @cli_command(31, 'stop-nodes', 'stop_nodes', 'stopnodes', validator=(str,))
     def command_stop_node(self, params):
         '''<node(s)>
         Stop nodes
-        This command stops installed fabnet node
+        This command stops installed fabnet nodes
         Arguments in the <node(s)> list may include normal nodes names, a range of names in hostlist format.
         '''
         nodes_list = parse_nodes(params[0])

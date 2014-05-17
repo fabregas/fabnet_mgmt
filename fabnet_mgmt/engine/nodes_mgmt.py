@@ -373,7 +373,18 @@ def start_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
 def stop_nodes(engine, session_id, nodes_list=[], log=None, wait_routine=None):
     nodes_objs = __get_nodes_objs(engine, nodes_list)
 
-    for i, node_obj in enumerate(nodes_objs):
+    sorted_objs = []
+    mgmt_nodes = []
+    for node_obj in nodes_objs:
+        if node_obj[DBK_NODETYPE] == MGMT_NODE_TYPE:
+            mgmt_nodes.append(node_obj)
+        else:
+            sorted_objs.append(node_obj)
+
+    sorted_objs.sort(key=lambda obj: obj[DBK_ID])
+    sorted_objs += mgmt_nodes
+
+    for i, node_obj in enumerate(sorted_objs):
         __log(log, 'Stopping %s node ...'%node_obj[DBK_ID])
         try:
             ret_str = __stop_node(engine, node_obj)
