@@ -82,7 +82,18 @@ class BaseMgmtCLIHandler(TelnetHandler):
         if getattr(self, 'session_id', None) is None:
             return
         if self.history:
-            self.mgmtManagementAPI.set_session_data(self.session_id, 'cli_history', self.history[:100])
+            hist = []
+            prev = None
+            for item in reversed(self.history):
+                if len(hist) == 100:
+                    break
+                if item == prev:
+                    continue
+
+                hist.append(item)
+                prev = item
+            hist.reverse()
+            self.mgmtManagementAPI.set_session_data(self.session_id, 'cli_history', hist)
         self.mgmtManagementAPI.logout(self.session_id)
 
     @cli_command(0, 'help')

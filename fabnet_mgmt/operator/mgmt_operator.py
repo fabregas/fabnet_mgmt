@@ -184,7 +184,7 @@ class ManagementOperator(Operator):
         ret_nodes = {}
         nodes = self.__db_api.get_fabnet_nodes()
         for node in nodes:
-            if not ret_nodes.has_key(DBK_NODEADDR):
+            if not node.has_key(DBK_NODEADDR):
                 continue
             node_info = {'uppers': node.get(DBK_UPPERS, []),
                          'superiors': node.get(DBK_SUPERIORS, [])}
