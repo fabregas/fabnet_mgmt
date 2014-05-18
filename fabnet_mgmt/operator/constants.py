@@ -1,6 +1,6 @@
 
 
-DEFAULT_MONITOR_CONFIG = {'COLLECT_NODES_STAT_TIMEOUT': 40,
-                            'DISCOVERY_TOPOLOGY_TIMEOUT': 60}
+DEFAULT_MONITOR_CONFIG = {'collect_nodes_stat_timeout': 40,
+                            'discovery_topology_timeout': 60}
 
 

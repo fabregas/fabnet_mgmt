@@ -201,6 +201,7 @@ class TestMgmtCLI(unittest.TestCase):
     def test99_stop(self):
         if TestMgmtCLI.thread:
             TestMgmtCLI.thread.stop()
+        BaseMgmtCLIHandler.mgmtManagementAPI.destroy()
 
 
     def _cmd(self, cmd, in_l=None, not_in_l=None, expect=PROMT):

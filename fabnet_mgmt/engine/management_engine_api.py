@@ -27,7 +27,8 @@ from fabnet_mgmt.engine.exceptions import MEOperException, MEAlreadyExistsExcept
 from fabnet_mgmt.engine.decorators import MgmtApiMethod
 from fabnet_mgmt.engine.users_mgmt import *
 from fabnet_mgmt.engine.nodes_mgmt import *
-
+from fabnet_mgmt.engine.schedule_core import ScheduleManager
+from fabnet_mgmt.engine.default_schedules_tasks import ChangeAuthKeyTask
 
 from fabnet_ca.ca_service import CAService
 from fabnet_ca.cert_req_generator import generate_keys, gen_request
@@ -183,17 +184,29 @@ class ManagementEngineAPI(object):
         self.__config_cache = None
         self.__db_mgr = db_mgr
         self._admin_ks = None
+        self.__schd_manager = None
         self.self_node_address = self_node_addr
         self.__check_configuration()
         self.__fri_client = FriClient()
+
+        ScheduleManager.add_task(ChangeAuthKeyTask)
+        self.__schd_manager = ScheduleManager(self)
+        self.__schd_manager.start()
 
         self.__ssh_client = SSHClient(None)
 
         self.__ca_service = None
 
-    def __del__(self):
+    def destroy(self):
+        if self.__schd_manager:
+            self.__schd_manager.stop()
+            self.__schd_manager = None
         if self.__db_mgr:
             self.__db_mgr.close()
+            self.__db_mgr = None
+
+    def __del__(self):
+        self.destroy()
 
     def __check_configuration(self):
         cluster_name = self.get_config_var(DBK_CONFIG_CLNAME)
@@ -397,6 +410,14 @@ class ManagementEngineAPI(object):
     def fri_call_net(self, node_addr, method_name, params=None):
         if not params:
             params = {}
+
+        if not node_addr:
+            nodes = self.db_mgr().get_fabnet_nodes({DBK_STATUS: STATUS_UP})
+            nodes = nodes.limit(1)
+            if nodes.count() == 0:
+                return 1, 'No started nodes found!'
+            node_addr = nodes[0][DBK_NODEADDR]
+
         packet = FabnetPacketRequest(method=method_name, parameters=params, is_multicast=True)
         return self.__fri_client.call(node_addr, packet)
 

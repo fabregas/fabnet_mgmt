@@ -45,7 +45,6 @@ KS_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../fabnet_co
 KS_PATH_2 = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'ks/test.p12')
 KS_PASSWD = 'node'
 
-
 class TestMgmtNode(unittest.TestCase):
     def create_net(self, nodes_count):
         global PROCESSES
@@ -75,11 +74,14 @@ class TestMgmtNode(unittest.TestCase):
                 Config.load(os.path.join(home, 'fabnet.conf'))
                 Config.update_config({'db_engine': 'mongodb', \
                         'db_conn_str': "mongodb://127.0.0.1/%s"%MONITOR_DB,\
-                        'COLLECT_NODES_STAT_TIMEOUT': 1,
+                        'COLLECT_NODES_STAT_TIMEOUT': 1, \
                         'mgmt_cli_port': 2323,
+                        'AUTH_KEY_CHANGE_PERIOD': 2, \
                         'mgmt_rest_port': 9923})
+                print open(os.path.join(home, 'fabnet.conf')).read()
             else:
                 ntype = 'Base'
+
             args = ['/usr/bin/python', './fabnet_core/bin/fabnet-node', address, n_node, 'NODE%.02i'%i, home, ntype, \
                     KS_PATH, '--input-pwd', '--nodaemon']
             if DEBUG:
@@ -168,6 +170,8 @@ class TestMgmtNode(unittest.TestCase):
 
         dbm = MgmtDatabaseManager("mongodb://127.0.0.1/%s"%MONITOR_DB)
         ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', KS_PATH_2, 'mongodb://127.0.0.1/%s'%CA_DB)
+
+        dbm.set_config(None, {DBK_SCHEDULED_DUMP: []})
 
         self.create_net(CNT)
 

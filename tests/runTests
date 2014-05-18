@@ -11,7 +11,7 @@ for item in os.listdir(path):
     if not item.endswith('.py'):
         continue
 
-    ret = os.system('python %s'%os.path.join(path, item))
+    ret = os.system('PYTHONPATH=".:fabnet_core" python %s'%os.path.join(path, item))
     if ret:
         print('[ERROR] Tests failed!')
         sys.exit(1)

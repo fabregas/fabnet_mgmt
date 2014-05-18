@@ -22,6 +22,7 @@ DBK_CONFIG_SSH_KEY = '__ssh_key'
 DBK_CONFIG_SECURED_INST = '__is_secured_installation' 
 DBK_CONFIG_MGMT_KS = '__mgmt_ks'
 DBK_UPGRADE_FLAG = '__upgrade_flag'
+DBK_SCHEDULED_DUMP = '__sch_dump'
 
 DBK_RELEASES = 'releases'
 DBK_RELEASE_URL = 'release_url'

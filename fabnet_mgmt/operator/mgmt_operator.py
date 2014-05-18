@@ -144,6 +144,7 @@ class ManagementOperator(Operator):
 
         self.__rest_api_thrd.stop()
         self.__cli_api_thrd.stop()
+        self.mgmt_api.destroy()
         self.__discovery_topology_thrd.join()
         self.__dbm.close()
         self.__db_api.close()

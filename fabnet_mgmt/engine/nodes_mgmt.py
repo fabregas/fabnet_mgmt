@@ -451,11 +451,7 @@ def software_upgrade(engine, session_id, force=False, log=None):
 
     parameters={'releases': rel_map, 'force': force}
 
-    mgmt_nodes = engine.db_mgr().get_fabnet_nodes({DBK_STATUS: STATUS_UP})
-    mgmt_nodes = mgmt_nodes.limit(1)
-    if mgmt_nodes.count() == 0:
-        return
-    ret_code, ret_msg = engine.fri_call_net(mgmt_nodes[0][DBK_NODEADDR], 'UpgradeNode', parameters)
+    ret_code, ret_msg = engine.fri_call_net(None, 'UpgradeNode', parameters)
     if ret_code:
         raise Exception('Unable to call UpgradeNode operation: %s'%ret_msg)
 

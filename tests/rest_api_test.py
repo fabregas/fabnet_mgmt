@@ -45,6 +45,7 @@ class ServerThread(threading.Thread):
 class RestAPITest(unittest.TestCase):
     key = None
     SERVER = None
+    MGMT_API = None
 
     def test00_init(self):
         cl = MongoClient('localhost')
@@ -56,6 +57,7 @@ class RestAPITest(unittest.TestCase):
         ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', '', '')
 
         mgmt_api = ManagementEngineAPI(dbm)
+        RestAPITest.MGMT_API = mgmt_api
         RESTHandler.setup_mgmt_api(mgmt_api)
         RestAPITest.SERVER = ServerThread(RESTHandler)
         RestAPITest.SERVER.start()
@@ -134,9 +136,11 @@ class RestAPITest(unittest.TestCase):
         self.assertEqual(rel[DBK_RELEASE_VERSION], '0.9a-2412')
         
         api.getNodesStat()
+        mgmt_api.destroy()
 
     def test99_stop(self):
         RestAPITest.SERVER.stop()
+        RestAPITest.MGMT_API.destroy()
 
 
 if __name__ == '__main__':

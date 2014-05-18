@@ -13,6 +13,8 @@ from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
 from fabnet_mgmt.engine.management_engine_api import ManagementEngineAPI
 from fabnet_mgmt.engine.exceptions import *
 from fabnet_mgmt.engine.constants import *
+from fabnet_mgmt.engine.schedule_core import ScheduledTask
+from fabnet_mgmt.engine.schedule_core import ScheduleManager
 
 path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(path, '..'))
@@ -23,6 +25,16 @@ from pymongo import MongoClient
 
 KS_PATH = './tests/ks/test.p12'
 KS_PASSWD = 'node'
+
+
+
+class TestTask(ScheduledTask):
+    @classmethod
+    def get_wait_time(cls):
+        return 5
+
+    def process(self):
+        self.mgmt_api.update_config({'some_val': 'TTTT'})
 
 class TestManagementEngineAPI(unittest.TestCase):
     key = None
@@ -140,6 +152,7 @@ class TestManagementEngineAPI(unittest.TestCase):
         self.assertEqual(ret, {'test': 0})
 
         mgmt_api.logout(ma_session_id)
+        mgmt_api.destroy()
 
     def test01_operations(self):
         dbm = MgmtDatabaseManager('localhost')
@@ -148,6 +161,7 @@ class TestManagementEngineAPI(unittest.TestCase):
         self.assertTrue(len(key)>0)
         self.assertEqual(key, TestManagementEngineAPI.key)
         self.assertTrue(not mgmt_api.is_secured_installation())
+        mgmt_api.destroy()
 
         cl = MongoClient('localhost')
         cl.drop_database('test_fabnet_mgmt_db')
@@ -160,6 +174,7 @@ class TestManagementEngineAPI(unittest.TestCase):
         with self.assertRaises(MEMgmtKSAuthException):
             mgmt_api.get_config(s, None)
         mgmt_api.logout(s)
+        mgmt_api.destroy()
 
         
         mgmt_api = ManagementEngineAPI(dbm)
@@ -168,6 +183,27 @@ class TestManagementEngineAPI(unittest.TestCase):
         self.assertTrue(mgmt_api.is_secured_installation())
         self.assertTrue(len(key)>0)
         self.assertNotEqual(key, TestManagementEngineAPI.key)
+        mgmt_api.destroy()
+
+    def test02_scheduler(self):
+        dbm = MgmtDatabaseManager('localhost')
+        ScheduleManager.add_task(TestTask)
+        mgmt_api = ManagementEngineAPI(dbm)
+        time.sleep(2)
+        mgmt_api.destroy()
+
+        mgmt_api = ManagementEngineAPI(dbm)
+        try:
+            val = mgmt_api.get_config_var('some_val')
+            self.assertEqual(val, None)
+            time.sleep(3.2)
+
+            val = mgmt_api.get_config_var('some_val')
+            self.assertEqual(val, 'TTTT')
+        finally:
+            mgmt_api.destroy()
+
+
 
 
 
