@@ -10,7 +10,6 @@ from optparse import OptionParser
 
 from fabnet_ca.ca_ks_generator import create_ca_ks
 from fabnet.utils.key_storage import KeyStorage
-from fabnet.core.constants import NODE_CERTIFICATE
 
 if __name__ == '__main__':
     parser = OptionParser()
@@ -37,7 +36,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     try:
-        role = options.role or NODE_CERTIFICATE
+        role = options.role
         if options.serial_num:
             serial = int(options.serial_num)
         else:

@@ -3,9 +3,8 @@ import sys
 from cert_req_signer import generate_ca, sign_request
 from cert_req_generator import generate_keys, gen_request
 from fabnet.utils.key_storage import KeyStorage
+from fabnet.core.constants import NODE_CERTIFICATE
 from ca_service import *
-
-
 import settings as S
 
 class CADatabase:
@@ -59,13 +58,21 @@ def add_ca_cert(cert, db_conn_str):
     ca_db.close()
 
 
-def create_ca_ks(output_file, password, role_name, root_ca_ks=None, CN=None, \
+def create_ca_ks(output_file, password, role_name=None, root_ca_ks=None, CN=None, \
                 serial_num=None, db_conn_str='localhost'):
     if os.path.exists(output_file):
         raise Exception('File %s is already exists'%output_file)
 
     if CN and len(str(CN))>64:
         raise Exception('Too long CN! Maximum length is 64 bytes')
+
+    if not role_name:
+        if not root_ca_ks:
+            role_name = NODE_CERTIFICATE
+        else:
+            cert = root_ca_ks.cert()
+            cert_o = X509.load_cert_string(cert)
+            role_name = cert_o.get_subject().OU
 
     ca_db = CADatabase(db_conn_str)
 
