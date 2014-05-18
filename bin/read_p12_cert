@@ -8,7 +8,7 @@ from fabnet.utils.key_storage import KeyStorage, exec_openssl, TmpFile
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print('usage: %s <key storage path>'%sys.argv[0])
+        print('usage: %s <key storage path> [--raw]'%sys.argv[0])
         sys.exit(1)
 
     try:
@@ -20,13 +20,16 @@ if __name__ == '__main__':
         ks = KeyStorage(sys.argv[1], pwd)
         cert = ks.cert()
 
-        tmp = TmpFile()
-        tmp.write(cert)
-        tmp.flush()
-        retcode, out = exec_openssl(['x509', '-in', tmp.name, '-noout', '-text'])
-        tmp.close()
+        if '--raw' in sys.argv:
+            print cert
+        else:
+            tmp = TmpFile()
+            tmp.write(cert)
+            tmp.flush()
+            retcode, out = exec_openssl(['x509', '-in', tmp.name, '-noout', '-text'])
+            tmp.close()
 
-        print out
+            print out
     except Exception, err:
         print('ERROR! %s'%err)
         sys.exit(1)
