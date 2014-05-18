@@ -2,7 +2,10 @@
 export PYTHONPATH=./
 
 compile:
-	@echo 'This method is not implemented' 
+	@echo 'Usage:'
+	@echo 'make clean'
+	@echo 'make test'
+	@echo 'make updeps'
 
 clean:
 	@echo "rm -rf ./dist"; rm -rf ./dist
@@ -12,8 +15,6 @@ clean:
 test:
 	./tests/runTests
 
-update:
-	git pull
-	git submodule update
+updeps:
 	git submodule update --remote --force
 

@@ -14,8 +14,24 @@ I. Cluster installation.
 1. Management key storage generation.
     For secured installation management key storage should be generated using generate-ca script.
 
-    Usage of generate-ca script:
-    # /opt/blik/fabnet/bin/generate-ca <role> <output key storage path> <cert name> [<root key storage path] [--genpwd]
+    Usage: generate-ca [options]
+
+        Options:
+          -h, --help            show this help message and exit
+          -r ROLE, --role=ROLE  certificate role ID (if not specified - fabnet node
+                                cert will be generated)
+          -k KS_PATH, --ks=KS_PATH
+                                path to output key storage
+          -n CN, --cert-name=CN
+                                name of certificate to generate
+          -p PARENT_KS, --parent-ks=PARENT_KS
+                                path to parent key storage
+          -d CA_DB_CONNSTR, --ca-db=CA_DB_CONNSTR
+                                CA database connect string
+          -s SERIAL_NUM, --serial-num=SERIAL_NUM
+                                cerial number of certificate to generate
+          --gen-pwd             generate password for key storage
+
 
 2. Install cluster using YAML specification.
     Usage of install-cluster script:

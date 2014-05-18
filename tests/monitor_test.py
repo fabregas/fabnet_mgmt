@@ -113,9 +113,7 @@ class TestMgmtNode(unittest.TestCase):
         proc = PROCESSES[idx]
 
         key_storage = init_keystore(KS_PATH, KS_PASSWD)
-        cert = key_storage.cert()
-        ckey = key_storage.cert_key()
-        client = FriClient(True, cert, ckey)
+        client = FriClient(key_storage)
         while True:
             if not os.path.exists('/proc/%s'%proc.pid):
                 raise Exception('Node process for %s does not found!')
@@ -136,9 +134,7 @@ class TestMgmtNode(unittest.TestCase):
 
     def _check_stat(self, address):
         key_storage = init_keystore(KS_PATH, KS_PASSWD)
-        cert = key_storage.cert()
-        ckey = key_storage.cert_key()
-        client = FriClient(True, cert, ckey)
+        client = FriClient(key_storage)
 
         while True:
             try:
@@ -187,9 +183,7 @@ class TestMgmtNode(unittest.TestCase):
 
         #p = subprocess.Popen(['/usr/bin/python', './fabnet_core/bin/fri-caller', 'TopologyCognition', ADDRESSES[0], '{}', 'async'])
         key_storage = init_keystore(KS_PATH, KS_PASSWD)
-        cert = key_storage.cert()
-        ckey = key_storage.cert_key()
-        client = FriClient(True, cert, ckey)
+        client = FriClient(key_storage)
         packet_obj = FabnetPacketRequest(method='TopologyCognition')
         ret_code, msg = client.call(ADDRESSES[0], packet_obj)
         self.assertEqual(ret_code, 0, msg)

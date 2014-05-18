@@ -19,26 +19,26 @@ from datetime import datetime
 base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../fabnet_core')))
 CA_SERVICE_BIN = os.path.join(base_path, 'bin/ca_service')
+CA_ADD_CERT_BIN = os.path.join(base_path, 'bin/ca-add-cert')
 sys.path.append(base_path)
 
 from fabnet.utils.key_storage import KeyStorage
 
-from fabnet_ca.ca_ks_generator import create_ca_ks
+from fabnet_ca.ca_ks_generator import create_ca_ks, add_ca_cert
 import fabnet_ca.settings as settings
 from fabnet_ca.cert_req_generator import gen_request, generate_keys
 
 from M2Crypto import EVP, X509
 
-settings.CA_CERTS_FILE = '/tmp/test_ca_certs'
 PWD = 'qwerty123'
 FILES = ('/tmp/test_root_ca.p12', '/tmp/test_node_ca.p12', \
-        '/tmp/test_clients_ca.p12', '/tmp/test_crm_ca.p12')
+        '/tmp/test_clients_ca.p12', '/tmp/test_crm_ca.p12', '/tmp/test_nodbc.p12')
 
 CLIENT_PKEY = NODE_PKEY = None
 
 class TestBaseCA(unittest.TestCase):
     def clear_files(self):
-        for f_path in list(FILES)+[settings.CA_CERTS_FILE]:
+        for f_path in list(FILES):
             if os.path.exists(f_path):
                 os.remove(f_path)
 
@@ -49,9 +49,9 @@ class TestBaseCA(unittest.TestCase):
         c.close()
 
         self.clear_files()
+        dbconn = 'mongodb://localhost/utest_fabnet_ca'
 
-        create_ca_ks(FILES[0], PWD, 'root', None)
-        self.assertTrue(os.path.exists(settings.CA_CERTS_FILE))
+        create_ca_ks(FILES[0], PWD, 'root', None, db_conn_str=dbconn)
         self.assertTrue(os.path.exists(FILES[0]))
         root_ks = KeyStorage(FILES[0], PWD)
 
@@ -60,21 +60,21 @@ class TestBaseCA(unittest.TestCase):
         with self.assertRaises(Exception):
             KeyStorage(FILES[0], 'fake')
         with self.assertRaises(Exception):
-            create_ca_ks(FILES[1], PWD, 'node', None)
+            create_ca_ks(FILES[1], PWD, 'node', root_ks, 'FirstDataCenter', db_conn_str='test_host')
 
-        create_ca_ks(FILES[1], PWD, 'node', root_ks, 'FirstDataCenter')
+        create_ca_ks(FILES[1], PWD, 'node', root_ks, 'FirstDataCenter', db_conn_str=dbconn)
         self.assertTrue(os.path.exists(FILES[1]))
 
         with self.assertRaises(Exception):
-            create_ca_ks(FILES[1], PWD, 'node', root_ks, 'FirstDataCenter')
+            create_ca_ks(FILES[1], PWD, 'node', root_ks, 'FirstDataCenter', db_conn_str=dbconn)
 
         node_ks = KeyStorage(FILES[1], PWD)
 
-        create_ca_ks(FILES[2], PWD, 'client', root_ks, 'Base clients certificate')
+        create_ca_ks(FILES[2], PWD, 'client', root_ks, 'Base clients certificate', db_conn_str=dbconn)
         self.assertTrue(os.path.exists(FILES[2]))
         clients_ks = KeyStorage(FILES[2], PWD)
 
-        create_ca_ks(FILES[3], PWD, 'crm.fabnet.com', node_ks, 'CRM')
+        create_ca_ks(FILES[3], PWD, 'crm.fabnet.com', node_ks, 'CRM', db_conn_str=dbconn)
         self.assertTrue(os.path.exists(FILES[3]))
         crm_ks = KeyStorage(FILES[3], PWD)
  
@@ -82,6 +82,14 @@ class TestBaseCA(unittest.TestCase):
         node_cert = node_ks.cert_obj()
         self.assertEqual(crm_cert.get_serial_number(), 4)
         #FIXME VALIDATE CERTS self.assertTrue(sub_clients_cert.verify(cliens_cert))
+
+        create_ca_ks(FILES[4], PWD, 'test', node_ks, 'Test', db_conn_str='test_host', serial_num=55)
+
+        ks = KeyStorage(FILES[4], PWD)
+        add_ca_cert(ks.cert(), dbconn)
+        with self.assertRaises(Exception):
+            add_ca_cert(ks.cert(), dbconn)
+
 
     def test_01_start_ca_service(self):
         env = os.environ

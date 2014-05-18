@@ -53,13 +53,7 @@ class ManagementOperator(Operator):
         self.__db_api = None
         self.check_database()
 
-        if key_storage:
-            cert = key_storage.cert()
-            ckey = key_storage.cert_key()
-        else:
-            cert = ckey = None
-        client = FriClient(bool(cert), cert, ckey)
-
+        client = FriClient(key_storage)
 
         db_conn_str = Config.get('db_conn_str')
         self.__dbm = MgmtDatabaseManager(db_conn_str)

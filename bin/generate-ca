@@ -6,27 +6,53 @@ import sys
 import getpass
 import random
 from string import digits, ascii_uppercase
+from optparse import OptionParser
 
 from fabnet_ca.ca_ks_generator import create_ca_ks
 from fabnet.utils.key_storage import KeyStorage
+from fabnet.core.constants import NODE_CERTIFICATE
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print('usage: %s <role> <output key storage path> <cert name> [<root key storage path] [--genpwd]'%sys.argv[0])
+    parser = OptionParser()
+    parser.add_option("-r", "--role", dest="role",
+                    help="certificate role ID (if not specified - fabnet node cert will be generated)")
+    parser.add_option("-k", "--ks", dest="ks_path",
+                    help="path to output key storage")
+    parser.add_option("-n", "--cert-name", dest="cn",
+                    help="name of certificate to generate")
+    parser.add_option("-p", "--parent-ks", dest="parent_ks",
+                    help="path to parent key storage")
+    parser.add_option("-d", "--ca-db", dest="ca_db_connstr",
+                    help="CA database connect string")
+    parser.add_option("-s", "--serial-num", dest="serial_num",
+                    help="cerial number of certificate to generate")
+    parser.add_option("--gen-pwd", dest="gen_pwd",
+                    action="store_true", default=False,
+                    help="generate password for key storage")
+
+    (options, args) = parser.parse_args()
+
+    if not options.ks_path:
+        parser.print_help()
         sys.exit(1)
 
     try:
-        if len(sys.argv) >= 5 and sys.argv[4] != '--genpwd':
-            root_ks_path = sys.argv[4]
-            if not os.path.exists(root_ks_path):
-                raise Exception('Root CA key storage does not found at %s'%root_ks_path)
+        role = options.role or NODE_CERTIFICATE
+        if options.serial_num:
+            serial = int(options.serial_num)
+        else:
+            serial = None
+
+        if options.parent_ks:
+            if not os.path.exists(options.parent_ks):
+                raise Exception('Root CA key storage does not found at %s'% options.parent_ks)
 
             pwd = getpass.getpass('Enter root CA key storage password: ')
-            root_ks = KeyStorage(root_ks_path, pwd)
+            root_ks = KeyStorage(options.parent_ks, pwd)
         else:
             root_ks = None
 
-        if '--genpwd' in sys.argv:
+        if options.gen_pwd:
             char_set = digits + ascii_uppercase
             pwd = ''
             for _ in range(20):
@@ -39,7 +65,8 @@ if __name__ == '__main__':
             if pwd != repwd:
                 raise Exception('Password mismatch!')
 
-        create_ca_ks(sys.argv[2], pwd, sys.argv[1], root_ks, sys.argv[3])
+        create_ca_ks(options.ks_path, pwd, role, root_ks, options.cn, \
+                serial, options.ca_db_connstr)
     except Exception, err:
         print('ERROR! %s'%err)
         sys.exit(1)

@@ -249,7 +249,7 @@ class ManagementEngineAPI(object):
         
         cert = self._admin_ks.cert()
         ckey = self._admin_ks.cert_key()
-        self.__fri_client = FriClient(bool(cert), cert, ckey)
+        self.__fri_client = FriClient(self._admin_ks)
 
     def need_key_storage_init(self):
         if self.is_secured_installation() and not self._admin_ks:
