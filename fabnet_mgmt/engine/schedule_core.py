@@ -2,10 +2,8 @@ import time
 import threading
 from datetime import datetime, timedelta
 
-from fabnet.utils.logger import init_logger
 from fabnet_mgmt.engine.constants import DBK_SCHEDULED_DUMP
-
-logger = init_logger('MGMT-ENGINE', False)
+from fabnet_mgmt.engine import logger
 
 class ScheduledTask(threading.Thread):
     def __init__(self, mgmt_api):

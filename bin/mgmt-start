@@ -60,7 +60,7 @@ def start_mgmt_node():
         print('Done.')
     finally:
         mgmt_api.logout(session_id)
-
+        mgmt_api.destroy()
 
 if __name__ == '__main__':
     try:

@@ -38,13 +38,12 @@ from fabnet.core.fri_client import FriClient
 from fabnet.core.fri_base import FabnetPacketRequest
 from fabnet.core.constants import NODE_CERTIFICATE
 from fabnet.core.key_storage import KeyStorage
-from fabnet.utils.logger import init_logger
 from fabnet.utils.plugins import PluginsManager
+from fabnet_mgmt.engine import logger
 
 import paramiko
 from M2Crypto import RSA, BIO, EVP
 
-logger = init_logger('MGMT-ENGINE', False)
 
 def load_plugins(pl_type):
     section = PluginsManager.get_section('mgmt_plugins')
@@ -186,7 +185,7 @@ class ManagementEngineAPI(object):
 
         db_mgr.set_config(None, cfg)
 
-    def __init__(self, db_mgr, self_node_addr=None, init_scheduler=True):
+    def __init__(self, db_mgr, self_node_addr=None, init_scheduler=False):
         MgmtApiMethod.set_mgmt_engine_api(self)
 
         self.__config_cache = None

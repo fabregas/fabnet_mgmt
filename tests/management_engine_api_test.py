@@ -188,11 +188,11 @@ class TestManagementEngineAPI(unittest.TestCase):
     def test02_scheduler(self):
         dbm = MgmtDatabaseManager('localhost')
         ScheduleManager.add_task(TestTask)
-        mgmt_api = ManagementEngineAPI(dbm)
+        mgmt_api = ManagementEngineAPI(dbm, init_scheduler=True)
         time.sleep(2)
         mgmt_api.destroy()
 
-        mgmt_api = ManagementEngineAPI(dbm)
+        mgmt_api = ManagementEngineAPI(dbm, init_scheduler=True)
         try:
             val = mgmt_api.get_config_var('some_val')
             self.assertEqual(val, None)

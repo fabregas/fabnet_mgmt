@@ -1,9 +1,7 @@
 
 from fabnet_mgmt.engine.schedule_core import ScheduledTask
-from fabnet.utils.logger import init_logger
 from fabnet.core.config import Config
-
-logger = init_logger('MGMT-ENGINE', False)
+from fabnet_mgmt.engine import logger
 
 class ChangeAuthKeyTask(ScheduledTask):
     @classmethod
