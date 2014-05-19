@@ -363,21 +363,37 @@ class NodesMgmtCLIHandler:
         stats = self.mgmtManagementAPI.get_nodes_stat(self.session_id)
 
         self.writeresponse('-'*100)
-        self.writeresponse('%-30s %s'%('Operation',  'Process time (ms)'.center(20)))
+        self.writeresponse('%-30s %s %s'%('Operation',  'Process time'.center(20), 'Callback time'.center(20)))
         self.writeresponse('-'*100)
         operations_stat = {}
         for node, n_stat in stats.items():
             ops = n_stat.get('OperationsProcTime', {})
             for op, o_time in ops.items():
-                if not op in operations_stat:
-                    operations_stat[op] = [0, 0]
-                operations_stat[op][0] += float(o_time)
-                operations_stat[op][1] += 1
+                if op.endswith('-Callback'):
+                    op = op[:-9]
+                    is_callback = True
+                else:
+                    is_callback = False
 
+                if not op in operations_stat:
+                    operations_stat[op] = [0, 0, 0, 0]
+                op_idx = 2 if is_callback else 0
+                cnt_idx = 3 if is_callback else 1
+                operations_stat[op][op_idx] += float(o_time)
+                operations_stat[op][cnt_idx] += 1
 
         for op_name in sorted(operations_stat.keys()):
-            o_time, cnt = operations_stat[op_name]
-            p_time = '%.1f'%((o_time / cnt)*1000,)
-            self.writeresponse('%-30s %s'%(op_name, p_time.center(20)))
+            o_time, cnt, c_time, c_cnt = operations_stat[op_name]
+            if cnt == 0: cnt = 1
+            if c_cnt == 0: c_cnt = 1
+            p_time = pretty_proc_time(o_time / cnt)
+            c_time = pretty_proc_time(c_time / c_cnt)
+            self.writeresponse('%-30s %s %s'%(op_name, p_time.center(20), c_time.center(20)))
              
 
+def pretty_proc_time(secs_time):
+    if secs_time == 0:
+        return '---'
+    if secs_time < 1:
+        return '%.1f ms' % (secs_time * 1000)
+    return '%.2f s' % secs_time
