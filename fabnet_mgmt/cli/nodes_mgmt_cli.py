@@ -142,16 +142,19 @@ class NodesMgmtCLIHandler:
                         status.center(10),\
                         node[DBK_NODEADDR].center(20)))
 
-    @cli_command(25, 'install-node', 'install_fabnet_node', 'installnode', 'i-node', validator=(str,str,str,str))
+    @cli_command(25, 'install-node', 'install_fabnet_node', 'installnode', 'i-node', validator=(str,str,str))
     def command_install_fabnet_node(self, params):
-        '''<physical node hostname> <node name> <node type> <node address>[:<custom port>]
+        '''<physical node hostname> <node type> <node address>[:<custom port>] [<custom node name>]
         Install new fabnet node
         This command install new fabnet node to management database
         and configure it according to specified node type
         Node address should be hostname or IP address that is visible to other nodes in network
         '''
-        self.mgmtManagementAPI.install_fabnet_node(self.session_id, params[0], params[1], params[2], params[3])
-        self.writeresponse('Node "%s" is installed!'%params[1].lower())
+        node_name = None
+        if len(params) > 3:
+            node_name = params[3]
+        node_name = self.mgmtManagementAPI.install_fabnet_node(self.session_id, params[0], params[1], params[2], node_name=node_name)
+        self.writeresponse('Node "%s" is installed!'%node_name)
 
     @cli_command(26, 'remove-physical-node', 'remove_physical_node', 'removepnode', 'rm-pnode', validator=(str,(str, 0)))
     def command_remove_phy_node(self, params):

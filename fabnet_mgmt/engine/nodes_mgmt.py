@@ -8,7 +8,8 @@ import tempfile
 from fabnet_mgmt.engine.decorators import MgmtApiMethod
 from fabnet_mgmt.engine.constants import ROLE_RO, ROLE_CF, ROLE_SS, ROLE_NM, \
         USER_NAME, DBK_ID, DBK_PHNODEID, DBK_RELEASE_URL, DBK_SSHPORT, DBK_KS_PWD_ENCR, MGMT_NODE_TYPE, \
-        DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, DBK_NODEADDR, STATUS_UP, STATUS_DOWN, DBK_UPGRADE_FLAG
+        DBK_HOMEDIR, DBK_NODETYPE, DBK_STATUS, DBK_NODEADDR, STATUS_UP, STATUS_DOWN, DBK_UPGRADE_FLAG, \
+        DBK_CONFIG_NODE_NUMSCNT, DBK_CONFIG_CLNAME
 from fabnet_mgmt.engine.exceptions import MEAlreadyExistsException, \
         MEOperException, MENotFoundException, MEBadURLException 
 
@@ -99,8 +100,17 @@ def get_ssh_key(engine, session_id, ph_node_host=None):
     return 'ssh-rsa %s' % ssh_cli.get_pubkey()
 
 @MgmtApiMethod(ROLE_NM)
-def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, node_addr, force_sw_upgrade=True):
-    node_name = node_name.lower()
+def install_fabnet_node(engine, session_id, ph_node_host, node_type, node_addr, force_sw_upgrade=True, node_name=None):
+    max_node_num = engine.db_mgr().get_max_fabnet_node_num()
+    node_num = max_node_num + 1
+
+    if node_name:
+        node_name = node_name.lower()
+    else:
+        num_cnt = engine.get_config_var(DBK_CONFIG_NODE_NUMSCNT)
+        cluster_name = engine.get_config_var(DBK_CONFIG_CLNAME)
+        node_name = '%s%s'%(cluster_name, str(node_num).zfill(num_cnt))
+
     node_type = node_type.upper()
     
     if not re.match('\w+$', node_name):
@@ -152,8 +162,9 @@ def install_fabnet_node(engine, session_id, ph_node_host, node_name, node_type, 
         sftp.close()
         cli_inst.close()
     
-    engine.db_mgr().append_fabnet_node(ph_node_host, node_name, node_type, \
+    engine.db_mgr().append_fabnet_node(ph_node_host, node_num, node_name, node_type, \
             node_addr, '/home/%s/%s'%(USER_NAME, home_dir_name), ks_data, ks_pwd_enc)
+    return node_name
 
 @MgmtApiMethod(ROLE_NM)
 def remove_fabnet_node(engine, session_id, node_name):

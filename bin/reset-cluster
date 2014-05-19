@@ -1,0 +1,72 @@
+#!/usr/bin/python
+import os
+import sys
+import yaml
+import getpass
+import random
+import string
+from optparse import OptionParser
+
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, ConfigurationError
+
+from fabnet_mgmt.engine.mgmt_db import MgmtDatabaseManager
+from fabnet_mgmt.engine.constants import *
+
+MGMT_CONFIG_FILE = '.fabnet_mgmt_db_uri'
+
+if __name__ == '__main__':
+    parser = OptionParser()
+    parser.add_option("-d", "--mgmt-db", dest="db_str",
+                    help="management database URI (save into $HOME/%s)"%MGMT_CONFIG_FILE)
+    parser.add_option("--reset-db", dest="reset_db",
+                    action="store_true", default=False,
+                    help="reset management database")
+    parser.add_option("--force", dest="force",
+                    action="store_true", default=False,
+                    help="force reset management database without any questions")
+
+    (options, args) = parser.parse_args()
+
+    if options.db_str:
+        db_url = options.db_str
+    else:
+        db_url = 'localhost'
+
+    if not options.reset_db:
+        parser.print_help()
+        sys.exit(1)
+
+ 
+    try:
+        try:
+            client = MongoClient(db_url)
+            mgmt_db = client.get_default_database()
+            db_name = mgmt_db.name
+        except ConfigurationError:
+            db_name = MgmtDatabaseManager.MGMT_DB_NAME
+            mgmt_db = client[db_name]
+
+        config = mgmt_db[DBK_CLUSTER_CONFIG].find_one({DBK_NODE_NAME: None, DBK_CONFIG_PARAM: DBK_CONFIG_CLNAME})
+        if not config:
+            print('Cluster does not installed!')
+            sys.exit(0)
+
+        if not options.force:
+            print '-'*80
+            print 'WARNING! All information about existing cluster will be removed!'
+            print '-'*80
+            cluster_name = config[DBK_CONFIG_VALUE]
+            u_cl_name = raw_input('Enter cluster name for reset (or empty string for cancel): ')
+            if not u_cl_name:
+                sys.exit(0)
+            if cluster_name != u_cl_name:
+                raise Exception('Mistmatched cluster names! Exiting...')
+
+        client.drop_database(db_name)
+        print ('Management database was reset!')
+        client.close()
+    except Exception, err:
+        sys.stderr.write('ERROR! %s\n'%err)
+        sys.exit(1)
+

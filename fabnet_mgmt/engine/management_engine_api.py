@@ -139,7 +139,7 @@ class SSHClient:
         #cli.get_host_keys().add(hostname, 'ssh-rsa', self.__pri)
         cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         if pkey:
-            pkey = paramiko.RSAKey.from_private_key(file_obj=MockFileObj(pkey))
+            pkey = paramiko.RSAKey.from_private_key(file_obj=MockFileObj(pkey.strip()))
         if not pkey:
             pkey = self.__pri
 
@@ -153,7 +153,7 @@ class SSHClient:
 
 class ManagementEngineAPI(object):
     @classmethod
-    def initial_configuration(cls, db_mgr, cluster_name, mgmt_ks_path, ca_db_addr):
+    def initial_configuration(cls, db_mgr, cluster_name, mgmt_ks_path, ca_db_addr, node_nums_count=2):
         config = db_mgr.get_config(None)
         if config.has_key(DBK_CONFIG_CLNAME):
             raise MEAlreadyExistsException('Management engine is already configured!') 
@@ -165,6 +165,13 @@ class ManagementEngineAPI(object):
         if is_secured_inst and not ca_db_addr:
             raise MEInvalidConfigException('CA database address expected for secure installation!')
 
+        try:
+            node_nums_count = int(node_nums_count)
+            if (node_nums_count < 1) or (node_nums_count > 3):
+                raise ValueError()
+        except ValueError, err:
+            raise MEInvalidConfigException('node_nums_count should be integer in range 1..3')
+
         if mgmt_ks_path:
             ks = open(mgmt_ks_path, 'rb').read()
             ks = base64.b64encode(ks)
@@ -174,11 +181,12 @@ class ManagementEngineAPI(object):
         cfg = {DBK_CONFIG_CLNAME: cluster_name,
                 DBK_CONFIG_SECURED_INST: '1' if is_secured_inst else '0',
                 DBK_CONFIG_MGMT_KS: ks,
+                DBK_CONFIG_NODE_NUMSCNT: node_nums_count,
                 DBK_CONFIG_CA_DB: ca_db_addr}
 
         db_mgr.set_config(None, cfg)
 
-    def __init__(self, db_mgr, self_node_addr=None):
+    def __init__(self, db_mgr, self_node_addr=None, init_scheduler=True):
         MgmtApiMethod.set_mgmt_engine_api(self)
 
         self.__config_cache = None
@@ -190,8 +198,9 @@ class ManagementEngineAPI(object):
         self.__fri_client = FriClient()
 
         ScheduleManager.add_task(ChangeAuthKeyTask)
-        self.__schd_manager = ScheduleManager(self)
-        self.__schd_manager.start()
+        if init_scheduler:
+            self.__schd_manager = ScheduleManager(self)
+            self.__schd_manager.start()
 
         self.__ssh_client = SSHClient(None)
 

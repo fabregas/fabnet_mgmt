@@ -171,6 +171,7 @@ class CLIThread(threading.Thread):
 class TestMgmtCLI(unittest.TestCase):
     thread = None
     CLI = None
+    CLUSTER_NAME = 'test_node'
     NODES = []
     IS_SECURED = False
 
@@ -185,7 +186,7 @@ class TestMgmtCLI(unittest.TestCase):
         MgmtDatabaseManager.MGMT_DB_NAME = 'test_fabnet_mgmt_db'
 
         dbm = MgmtDatabaseManager('localhost')
-        ManagementEngineAPI.initial_configuration(dbm, 'test_cluster', KS_PATH if self.IS_SECURED else None,\
+        ManagementEngineAPI.initial_configuration(dbm, self.CLUSTER_NAME, KS_PATH if self.IS_SECURED else None,\
                 'mongodb://127.0.0.1/test_fabnet_ca')
 
         mgmt_api = ManagementEngineAPI(dbm)
@@ -303,8 +304,8 @@ class TestMgmtCLI(unittest.TestCase):
             self._cmd('i-pnode test_hostname.com:322 test_user file:/%s/ks/key.pem'%PATH, 'configured!')
 
             for i, (node_type, node_name) in enumerate(self.NODES):
-                self._cmd('install-node test_hostname.com %s %s externa_addr_test_node:222%s'% \
-                        (node_name, node_type,i), 'installed')
+                self._cmd('install-node test_hostname.com %s externa_addr_test_node:222%s'% \
+                        (node_type,i), 'installed')
             self._cmd('shnodes', [i[1] for i in self.NODES])
         finally:
             cli.sendline('exit')
@@ -595,13 +596,13 @@ class TestMgmtCLIBase(TestMgmtCLI):
 
             self._cmd('help install-node', 'i-node')
             self._cmd('install-node', 'Usage: INSTALL-NODE')
-            self._cmd('install-node some-host testnode dht externa_addr_test_node', \
+            self._cmd('install-node some-host dht externa_addr_test_node', \
                     'Error! [50] Physical node "some-host" does not installed')
-            self._cmd('install-node test_hostname.com testnode unkn-type externa_addr_test_node:2222', \
+            self._cmd('install-node test_hostname.com unkn-type externa_addr_test_node:2222', \
                     'Error! [50] Node type "UNKN-TYPE" does not configured in the system!')
-            self._cmd('install-node test_hostname.com test-#@node dht externa_addr_test_node:2222', \
+            self._cmd('install-node test_hostname.com dht externa_addr_test_node:2222 test-#@node', \
                     'Error! [20] Invalid node name')
-            self._cmd('install-node test_hostname.com test_node01 dht externa_addr_test_node:2222', \
+            self._cmd('install-node test_hostname.com dht externa_addr_test_node:2222', \
                     'installed')
             self.assertEqual(len(MockedSSHClient.CONNECT_LOG), 1, MockedSSHClient.CONNECT_LOG)
             self.assertEqual(len(MockedSSHClient.COMMANDS_LOG), 3 if self.IS_SECURED else 2, MockedSSHClient.COMMANDS_LOG)
@@ -620,7 +621,7 @@ class TestMgmtCLIBase(TestMgmtCLI):
             else:
                 self.assertEqual(len(files), 1, files)
 
-            self._cmd('install-node test_hostname.com test_node02 mgmt mgmt_test_node:2223', 'installed')
+            self._cmd('install-node test_hostname.com mgmt mgmt_test_node:2223', 'installed')
         finally:
             cli.sendline('exit')
             cli.expect(pexpect.EOF)
@@ -718,12 +719,12 @@ class TestMgmtCLIBase(TestMgmtCLI):
             self._cmd('help start-nodes', 'startnodes')
             self._cmd('start-nodes unkn-node', 'Error! [50] Node "unkn-node" does not found!')
             self._cmd('start-nodes test_node01', ['Starting', 'Done'])
-            self._cmd('start-nodes test_node[00-01]', ['Node "test_node00" does not found!'])
-            self._cmd('start-nodes test_node[01-02]', ['Starting', 'Done'], ['Error'])
+            self._cmd('start-nodes test_node[00-02]', ['Node "test_node02" does not found!'])
+            self._cmd('start-nodes test_node[00-01]', ['Starting', 'Done'], ['Error'])
 
             self.assertEqual(len(MockedSSHClient.INPUT_LOG), 3 if self.IS_SECURED else 0)
 
-            self._cmd('reload-nodes test_node[01-02]', ['Rebooting', 'Done', 'Skipped'], ['Error'])
+            self._cmd('reload-nodes test_node[00-01]', ['Rebooting', 'Done', 'Skipped'], ['Error'])
             
             self._cmd('stop-nodes', 'Usage: STOP-NODES')
             self._cmd('help stop-nodes', 'stopnodes')
@@ -790,7 +791,7 @@ class TestMgmtCLIBase(TestMgmtCLI):
             cli.sendline('n')
             cli.expect(PROMT)
 
-            cli.sendline('rm-node test_node01')
+            cli.sendline('rm-node test_node00')
             cli.expect('Are you sure')
             cli.sendline('Y')
             cli.readline()
@@ -798,7 +799,7 @@ class TestMgmtCLIBase(TestMgmtCLI):
             cli.expect(PROMT)
 
 
-            self._cmd('rm-node test_node02 --force', 'removed')
+            self._cmd('rm-node test_node01 --force', 'removed')
             self._cmd('rm-pnode test_hostname.com --force', 'removed')
 
             self._cmd('help')

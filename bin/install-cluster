@@ -41,6 +41,7 @@ def parse_install_file(file_path):
 
     cluster_info = get_section(data, 'cluster_info')
     get_section(cluster_info, 'name', name='cluster_info.')
+    get_section(cluster_info, 'node_nums_count', name='cluster_info.')
 
     ca_info = get_section(data, 'ca', exception=False)
     if ca_info:
@@ -59,11 +60,10 @@ def parse_install_file(file_path):
     nodes_list = get_section(data, 'fabnet_nodes')
     if type(nodes_list) != list:
         raise Exception('Invalid fabnet nodes list in installation file!')
-    for node in nodes_list:
-        for node_name, n_data in node.items():
-            get_section(n_data, 'ssh_host', name='nodes.%s.'%node_name)
-            get_section(n_data, 'fabnet_addr', name='nodes.%s.'%node_name)
-            get_section(n_data, 'node_type', name='nodes.%s.'%node_name)
+    for i, node in enumerate(nodes_list):
+        get_section(node, 'ssh_host', name='nodes[%s].'% i)
+        get_section(node, 'fabnet_addr', name='nodes[%s].'% i)
+        get_section(node, 'node_type', name='nodes[%s].'% i)
 
     return cluster_info, ca_info, node_types, p_nodes_list, nodes_list
     
@@ -94,10 +94,10 @@ def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''
     else:
         print('========= Initial cluster configuration =========')
         ManagementEngineAPI.initial_configuration(dbm, cluster_info['name'], \
-                mgmt_ks_path, ca_db_conn_str)
+                mgmt_ks_path, ca_db_conn_str, cluster_info['node_nums_count'])
     
     try:
-        mgmt_api = ManagementEngineAPI(dbm)
+        mgmt_api = ManagementEngineAPI(dbm, init_scheduler=False)
         if mgmt_ks_path:
             mgmt_api.init_key_storage(mgmt_ks_pwd)
 
@@ -151,23 +151,25 @@ def install_cluster(mgmt_db_url, install_file_path, mgmt_ks_path, mgmt_ks_pwd=''
 
         print('=========   Fabnet nodes installation   =========')
         nodes = mgmt_api.show_nodes(session_id, filters={'physical': False})
-        fb_nodes = [node[DBK_ID] for node in nodes] 
+        fb_nodes = [node[DBK_NODEADDR] for node in nodes] 
         for node in nodes_list:
-            for node_name, n_data in node.items():
-                if node_name in fb_nodes:
-                    print('  ** fabnet node %s is already installed!'%node_name)
-                    continue
+            if node['fabnet_addr'] in fb_nodes:
+                print('  ** fabnet node for address %s is already installed!'%node['fabnet_addr'])
+                continue
 
-                print('  --> configuring "%s" node ...'%node_name)
-                mgmt_api.install_fabnet_node(session_id, n_data['ssh_host'], \
-                        node_name, n_data['node_type'], n_data['fabnet_addr'], \
-                        force_sw_upgrade = not is_upgrade)
-                
-                if n_data.has_key('config'):
-                    mgmt_api.set_config(session_id, node_name, n_data['config'])
+            print('  --> installing node at %s ...'%node['fabnet_addr'])
+            node_name = mgmt_api.install_fabnet_node(session_id, node['ssh_host'], \
+                    node['node_type'], node['fabnet_addr'], \
+                    force_sw_upgrade = not is_upgrade)
+            
+            if node.has_key('config'):
+                mgmt_api.set_config(session_id, node_name, node['config'])
+
+            print('  --> installed %s node.'%node_name)
         print('=========             Done              =========')
 
         mgmt_api.logout(session_id)
+        mgmt_api.destroy()
     except Exception, err:
         if not is_upgrade:
             print('=========         Reset cluster         =========')
@@ -235,5 +237,3 @@ if __name__ == '__main__':
         pass
 
     sys.exit(0)
-
-

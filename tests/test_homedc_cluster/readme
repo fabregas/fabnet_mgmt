@@ -1,0 +1,43 @@
+
+Homedc cluster contain 5 fabnet nodes installed on one host (localhost)
+
+
+-------------------------------------------------------------------------------------
+For install homedc cluster you should perform following steps:
+-------------------------------------------------------------------------------------
+
+- login as fabnet user:
+    sudo su fabnet
+
+- generate key storage (for secured installation only):
+    1) ensure that mongodb is installed and started at localhost
+    2) /opt/blik/fabnet/bin/generate-ca -k amdin_ks.p12 -n homedc
+
+- setup SSH public key to authorized_keys:
+    cat test_id_rsa.pub | sudo sh -c 'cat >> /root/.ssh/authorized_keys'
+
+- setup cluster:
+    /opt/blik/fabnet/bin/install-cluster -y test_cluster.yaml -k admin_ks.p12
+
+    Notice! "-k admin_ks.p12" for secured installation only.
+            For unsecured installation, remove "ca" section from test_cluster.yaml
+            before run install-cluster command
+
+
+-------------------------------------------------------------------------------------
+Cluster usage:
+-------------------------------------------------------------------------------------
+
+- start management node:
+    /opt/blik/fabnet/bin/mgmt-start
+
+- login to management CLI:
+    telnet 0.0.0.0 2323
+
+
+-------------------------------------------------------------------------------------
+Cluster reset:
+-------------------------------------------------------------------------------------
+
+If you want clear management database, use reset-cluser utility:
+    /opt/blik/fabnet/bin/reset-cluster --reset-db
