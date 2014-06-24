@@ -332,13 +332,14 @@ class NodesMgmtCLIHandler:
             ow = '%s/%s'%(tmp.get('workers', '-'), tmp.get('busy', '-'))
 
             tmp = n_stat.get('OperationsProcessorWMStat', {})
+            op_workers_count = int(tmp.get('workers', 1))
             opw = '%s/%s'%(tmp.get('workers', '-'), tmp.get('busy', '-'))
 
             tmp = n_stat.get('FriAgentWMStat', {})
             fa = '%s/%s'%(tmp.get('workers', '-'), tmp.get('busy', '-'))
 
             tmp = n_stat.get('OperationsProcessorProcStat', {})
-            mem = float(tmp.get('memory', 0))
+            mem = float(tmp.get('memory', 0)) * op_workers_count
             tmp = n_stat.get('FriServerProcStat', {})
             mem += float(tmp.get('memory', 0))
             tmp = n_stat.get('OperatorProcStat', {})

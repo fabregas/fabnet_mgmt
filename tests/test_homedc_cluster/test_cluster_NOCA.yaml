@@ -1,0 +1,77 @@
+
+cluster_info:
+    name: homedc
+    node_nums_count: 2
+    config:
+        test_global: some test string!
+
+node_types:
+    MGMT:
+        release_url: https://github.com/fabregas/fabnet_mgmt/archive/master.zip
+    DHT:
+        release_url: https://github.com/fabregas/fabnet_dht/archive/master.zip
+
+physical_nodes:
+    - localhost:
+        ssh_port: 22
+        ssh_user: root
+        ssh_key: | 
+            -----BEGIN RSA PRIVATE KEY-----
+            MIIEowIBAAKCAQEAuR+TFaVWP5AywmKaVrPgrP8UcVz0DUcrdIrkf1udNBK4Qxt9
+            9rKTwwxNmssB0kJ+z0iEZUeb+1f5jOKd6c7GkTWkcIvShek9UduJh3URazXJSU6A
+            Y6jnydS8oMLNjbRCemMyAhqI9V3PliglbGW3cRyqFgMrof1iwEg2Auyfbr+rtUEH
+            MuZYwdRyq1NVf2iuWuvY6kjNS9XppleIwlwCr/T5Ng9yazlbtCvwtp6FaAhJlLof
+            GnHW0UE5pQp7IztKj3LOdcEhMJVF8FWCknRSxuCedujwta6YsbpuQR53PvOEXkHI
+            iokU10gxhjmTttQmvTF8S5ZxwADkvoipJPfgLQIDAQABAoIBAFDf2WsQczCLt5Ey
+            cIjGRrZtLaok2L3gRLzCXPbCuFfigbtXjF01QNZqTpD8dUw9HpdB8A0rDprsoSoK
+            asCVRCx2CePdQdicv9w+E8QowbZbphcvg2mGhdSn6sw0roZkpNJA+bzviLvhAupv
+            mYHUoiJ5SlkZg3tebkDgizAV3cUMmx0TuGVjJpAtzDve3v6/WCIuCJgt6ZhyDaT3
+            OvTjYAxH8/gOanO2zfKixRmTMcaH68WTEATXgMuZEF4c/0f0M0o037ro1llUYMgd
+            TM0VAks/7GzRX0LA08GcMk+zLyW2Jcg8wTWwfvUym1fsvrTB7H5x2tqjzeGqNWhd
+            hBxBuUUCgYEA3sVRdmVWaMDLXzMWGdpTzFM4mtyV0ccpsLI/c9v2QblRDzkxA9gT
+            gIckn8TW7t8JbgNXk99derykfnAINQFTeTdeB+8nngI1nlclL1Ia4Rop6xzIICG2
+            kFfPrA7TCnXMSiqYgWLoWKrHXMKHYPfcXck9mdDxHmdjrhxfBGgZef8CgYEA1Lyo
+            mlDMcbILVaOBZzFS39pGzbrziDvwHQeK6osxUnyys2aUP/il2s4sGCehfFt4Bzuq
+            Znb7YXrt7969SbEI07pPN34pss0jinseRfqeEMrxRPbhhKfjsgcH8+uXRFO5R66S
+            wnYJijQNu63ek9XuwIAEEybC08+2UfG0pol5rdMCgYEAgjfrX37rHL6d4t806xXR
+            aB25d+S7eu2ltBDtwGbyswaFmJWAzlNvSvE0emQQk38yvukbN2gY95bvvKz2Ty2g
+            QroXsCGfEeEOwKkGJnwjFDQ8DqA7Z3Tth8Cct2HPAU1MhooRrYhIcxQZB2L6ybb5
+            TKVG6fPWDkS3Yt5YuHW1drcCgYBw7Vi+2ec871tO8YWOpsMsay0spnICPnb+ofNe
+            /9aFyAYAb5KAxtgb51fG1rrFTbTQeh7BV6WnoF7P9zgZ9y0NX5gPiBxQes7EAwkV
+            8qyXk3MxvbAHACxBY7QYClZ5AcyXvZbQPWJhB7LGjsxZQ7YCX7JKDEhdsaRBqYHQ
+            6ac62wKBgGWGsBtI1r79R/rJlyK6Dw0w/FjsoOYQfZC2FjT+oPc90vQnK+0PzjfB
+            gdeFOp6N7NpcXFleqzPfZhBBrlQZxzIKlPtm+FmFUEaSpL/fcrO1nV33w0SL6Fnw
+            hTAq1MNMuIeDGYKP7p8dhqWrnnciaC2926t3GfOw/sgvJuQEeEK2
+            -----END RSA PRIVATE KEY-----
+
+
+fabnet_nodes:
+    - ssh_host: localhost
+      fabnet_addr: localhost:1900
+      node_type: MGMT
+      config:
+            mgmt_cli_host: 0.0.0.0
+            mgmt_cli_port: 2323
+            mgmt_rest_host: 0.0.0.0
+            mgmt_rest_port: 8000
+            db_conn_str: mongodb://localhost
+            AUTH_KEY_CHANGE_PERIOD: 6000
+            DISCOVERY_TOPOLOGY_TIMEOUT: 60
+            COLLECT_NODES_STAT_TIMEOUT: 20
+
+    - ssh_host: localhost
+      fabnet_addr: localhost:1940
+      node_type: DHT
+
+    - ssh_host: localhost
+      fabnet_addr: localhost:1941
+      node_type: DHT
+
+    - ssh_host: localhost
+      fabnet_addr: localhost:1942
+      node_type: DHT
+
+    - ssh_host: localhost
+      fabnet_addr: localhost:1943
+      node_type: DHT
+

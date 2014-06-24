@@ -210,6 +210,10 @@ class CAService:
                 return cert_info[DBK_CERT_PEM]
             raise AlreadyGenerated('Certificate with activation key=%s is already processed!'%activation_key) 
 
+        cert_with_cn = self.certificates_collection.find_one({DBK_CERT_CN: issuer_cn})
+        if cert_with_cn:
+            raise InvalidRegistration('Certificate with CN=%s is already exists!'%issuer_cn)
+
         #generating certificate
         serial_id = cert_info[DBK_CERT_SERIALID]
         cert_period = int(cert_info[DBK_CERT_TERM])
