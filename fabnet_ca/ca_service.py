@@ -281,7 +281,7 @@ class CAService:
                     cert_req_pem = safe_get('cert_req_pem')
                     unique_cn = params.get('unique_cn', False)
 
-                    resp = self.generate_certificate(act_key, cert_req_pem)
+                    resp = self.generate_certificate(act_key, cert_req_pem, unique_cn)
                 elif path == '/add_new_certificate_info':
                     act_key = safe_get('activation_key')
                     cert = safe_get('sign_cert')
