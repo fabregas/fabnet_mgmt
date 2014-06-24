@@ -10,7 +10,10 @@ from cert_req_signer import sign_request, generate_ca
 from datetime import datetime, timedelta
 import urlparse
 import threading
+from cherrypy import wsgiserver
+
 from fabnet.utils.key_storage import KeyStorage
+from fabnet.utils.logger import logger
 
 DEBUG=True
 
@@ -186,7 +189,7 @@ class CAService:
 
         return cert[DBK_CERT_PEM]
 
-    def generate_certificate(self, activation_key, cert_req_pem):
+    def generate_certificate(self, activation_key, cert_req_pem, unique_cn=False):
         cert_info = self.certificates_collection.find_one({DBK_CERT_ACTKEY: activation_key})
         if not cert_info:
             raise NotFound('Certificate with key=%s does not found!'%activation_key)
@@ -210,9 +213,10 @@ class CAService:
                 return cert_info[DBK_CERT_PEM]
             raise AlreadyGenerated('Certificate with activation key=%s is already processed!'%activation_key) 
 
-        cert_with_cn = self.certificates_collection.find_one({DBK_CERT_CN: issuer_cn})
-        if cert_with_cn:
-            raise InvalidRegistration('Certificate with CN=%s is already exists!'%issuer_cn)
+        if unique_cn:
+            cert_with_cn = self.certificates_collection.find_one({DBK_CERT_CN: issuer_cn})
+            if cert_with_cn:
+                raise InvalidRegistration('Certificate with CN=%s is already exists!'%issuer_cn)
 
         #generating certificate
         serial_id = cert_info[DBK_CERT_SERIALID]
@@ -275,6 +279,7 @@ class CAService:
                 elif path == '/generate_certificate':
                     act_key = safe_get('activation_key')
                     cert_req_pem = safe_get('cert_req_pem')
+                    unique_cn = params.get('unique_cn', False)
 
                     resp = self.generate_certificate(act_key, cert_req_pem)
                 elif path == '/add_new_certificate_info':
@@ -311,4 +316,30 @@ class CAService:
             return send_error('500 Internal Server Error', err)
 
 
+
+class CAServer(threading.Thread):
+    def __init__(self, service, host, port):
+        threading.Thread.__init__(self)
+        self.__service = service
+        self.__host = host
+        self.__port = port
+        self.__server = None
+        self.setName('CAServer')
+
+    def run(self):
+        try:
+            self.__server = wsgiserver.CherryPyWSGIServer((self.__host, self.__port), self.__service.web_app,)
+
+            logger.info('CAServer thread is started')
+            self.__server.start()
+        except Exception, err:
+            logger.error('[CAServer] %s'%err)
+        logger.info('CAServer thread is stopped')
+
+    def stop(self):
+        if self.__server is None:
+            return
+        self.__server.stop()
+        self.__server = None
+        self.join()
 

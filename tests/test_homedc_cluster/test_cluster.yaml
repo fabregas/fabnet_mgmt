@@ -57,6 +57,8 @@ fabnet_nodes:
             mgmt_cli_port: 2323
             mgmt_rest_host: 0.0.0.0
             mgmt_rest_port: 8000
+            mgmt_ca_host: 0.0.0.0
+            mgmt_ca_port: 8080
             db_conn_str: mongodb://localhost
             AUTH_KEY_CHANGE_PERIOD: 6000
             DISCOVERY_TOPOLOGY_TIMEOUT: 60

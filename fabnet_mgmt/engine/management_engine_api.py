@@ -30,7 +30,7 @@ from fabnet_mgmt.engine.nodes_mgmt import *
 from fabnet_mgmt.engine.schedule_core import ScheduleManager
 from fabnet_mgmt.engine.default_schedules_tasks import ChangeAuthKeyTask
 
-from fabnet_ca.ca_service import CAService
+from fabnet_ca.ca_service import CAService, CAServer
 from fabnet_ca.cert_req_generator import generate_keys, gen_request
 from fabnet_ca.openssl import Openssl
 
@@ -185,8 +185,13 @@ class ManagementEngineAPI(object):
 
         db_mgr.set_config(None, cfg)
 
-    def __init__(self, db_mgr, self_node_addr=None, init_scheduler=False):
+    def __init__(self, db_mgr, self_node_addr=None, init_scheduler=False, ca_host=None, ca_port=8080):
         MgmtApiMethod.set_mgmt_engine_api(self)
+
+        self.__ca_service = None
+        self.__ca_server = None
+        self.__ca_host = ca_host
+        self.__ca_port = ca_port
 
         self.__config_cache = None
         self.__db_mgr = db_mgr
@@ -203,12 +208,15 @@ class ManagementEngineAPI(object):
 
         self.__ssh_client = SSHClient(None)
 
-        self.__ca_service = None
-
     def destroy(self):
+        if self.__ca_server:
+            self.__ca_server.stop()
+            self.__ca_server = None
+
         if self.__schd_manager:
             self.__schd_manager.stop()
             self.__schd_manager = None
+
         if self.__db_mgr:
             self.__db_mgr.close()
             self.__db_mgr = None
@@ -264,6 +272,9 @@ class ManagementEngineAPI(object):
         tmp.close()
 
         self.__ca_service = CAService(self.get_config_var(DBK_CONFIG_CA_DB), self._admin_ks)
+        if self.__ca_host:
+            self.__ca_server = CAServer(self.__ca_service, self.__ca_host, self.__ca_port)
+            self.__ca_server.start()
 
         key = self.__init_ssh()
         self.__ssh_client = SSHClient(key)

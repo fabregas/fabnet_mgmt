@@ -57,7 +57,10 @@ class ManagementOperator(Operator):
 
         db_conn_str = Config.get('db_conn_str')
         self.__dbm = MgmtDatabaseManager(db_conn_str)
-        self.mgmt_api = mgmt_api = ManagementEngineAPI(self.__dbm, self_address, init_scheduler=True)
+        ca_host = Config.get('mgmt_ca_host', None)
+        ca_port = int(Config.get('mgmt_ca_port', 8080))
+        self.mgmt_api = mgmt_api = ManagementEngineAPI(self.__dbm, self_address, init_scheduler=True, \
+                ca_host=ca_host, ca_port=ca_port)
         BaseMgmtCLIHandler.mgmtManagementAPI = mgmt_api
         host = Config.get('mgmt_cli_host', '0.0.0.0')
         cli_port = int(Config.get('mgmt_cli_port', '23'))
