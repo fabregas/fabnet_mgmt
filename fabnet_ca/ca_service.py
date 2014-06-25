@@ -173,9 +173,15 @@ class CAService:
 
 
     def get_activation_info(self, activation_key):
-        cert_info = self.certificates_collection.find_one({DBK_CERT_ACTKEY: activation_key})
+        return self.__get_cert_info({DBK_CERT_ACTKEY: activation_key})
+
+    def get_certificate_info(self, cn):
+        return self.__get_cert_info({DBK_CERT_CN: cn})
+
+    def __get_cert_info(self, filter_d):
+        cert_info = self.certificates_collection.find_one(filter_d)
         if not cert_info:
-            raise NotFound('No information about activation key "%s" found!'%activation_key)
+            raise NotFound('Certificate does not found with filter "%s"'%filter_d)
 
         return {'cert_term': cert_info[DBK_CERT_TERM], 
                 'cert_add_info': cert_info[DBK_CERT_ADDINFO],
@@ -275,6 +281,10 @@ class CAService:
                 if path == '/get_activation_info':
                     act_key = safe_get('activation_key')
                     resp = self.get_activation_info(act_key)
+                    resp = json.dumps(resp)
+                elif path == '/get_certificate_info':
+                    cn = safe_get('cn')
+                    resp = self.get_certificate_info(cn)
                     resp = json.dumps(resp)
                 elif path == '/generate_certificate':
                     act_key = safe_get('activation_key')
